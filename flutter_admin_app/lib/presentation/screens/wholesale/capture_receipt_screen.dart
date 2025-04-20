@@ -25,12 +25,10 @@ class _CaptureReceiptScreenState extends State<CaptureReceiptScreen> {
 
   Future<void> _pickImageFromGallery() async {
     final List<XFile> images = await _picker.pickMultiImage();
-    if (images != null) {
-      setState(() {
-        _receiptImages.addAll(images);
-      });
+    setState(() {
+      _receiptImages.addAll(images);
+    });
     }
-  }
 
   void _viewImage(XFile image) {
     Navigator.push(

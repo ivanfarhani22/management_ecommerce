@@ -23,6 +23,7 @@ class AppRoutes {
   static const String inventory = '/inventory';
   static const String addProduct = '/inventory/add-product';
   static const String editProduct = '/inventory/edit-product';
+  static const String showProduct = '/inventory/show-product';
   static const String orders = '/orders';
   static const String orderDetails = '/orders/details';
   static const String transactions = '/transactions';

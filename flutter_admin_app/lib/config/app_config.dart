@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'dart:io' show Platform;
 
 class AppConfig {
   // Singleton pattern for global access
@@ -9,10 +10,35 @@ class AppConfig {
   // Environment configurations
   static const String environment = kDebugMode ? 'development' : 'production';
 
-  // API Configuration
-  static const String baseApiUrl = kDebugMode 
-    ? 'http://127.0.0.1:8000/api'  // Updated to use 127.0.0.1 for Laravel
-    : 'https://127.0.0.1:8000/api';
+  // Get the appropriate base URL depending on platform and environment
+  static String get baseApiUrl {
+    if (kDebugMode) {
+      // For debugging: use different URL based on platform
+      if (Platform.isAndroid) {
+        // Your specific IP address for Android device testing
+        return 'http://192.168.1.6:8000/api';
+      } else {
+        // Windows, macOS, Linux, etc.
+        return 'http://127.0.0.1:8000/api';
+      }
+    } else {
+      // Production environment
+      return 'https://your-production-domain.com/api';  // Replace with your actual production API
+    }
+  }
+  
+  // API Token
+  String apiToken = ''; 
+  
+  // Set API Token
+  void setApiToken(String token) {
+    apiToken = token;
+  }
+  
+  // Get API Token
+  String getApiToken() {
+    return apiToken;
+  }
 
   // App Details
   static const String appName = 'Admin Dashboard';
@@ -37,12 +63,12 @@ class AppConfig {
     switch (environment) {
       case 'development':
         return {
-          'apiUrl': 'http://127.0.0.1:8000/api',  // Updated for Laravel
+          'apiUrl': baseApiUrl,  // Use the dynamic getter
           'logLevel': 'debug',
         };
       case 'production':
         return {
-          'apiUrl': 'https://127.0.0.1:8000/api',
+          'apiUrl': baseApiUrl,  // Use the dynamic getter
           'logLevel': 'error',
         };
       default:

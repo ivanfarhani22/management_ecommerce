@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\AuthService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
@@ -58,11 +59,26 @@ class AuthController extends Controller
         }
 
         try {
-            $result = $this->authService->login($request->only(['email', 'password']));
+            $credentials = $request->only(['email', 'password']);
+
+            if (!Auth::attempt($credentials)) {
+                return response()->json([
+                    'message' => 'Invalid email or password'
+                ], 401);
+            }
+
+            $user = Auth::user();
+
+            // 🔥 Tambahkan ini: hapus semua token lama
+            $user->tokens()->delete();
+
+            // 🔑 Buat token baru
+            $token = $user->createToken('AuthToken')->plainTextToken;
+
             return response()->json([
                 'message' => 'Login successful',
-                'user' => $result['user'],
-                'token' => $result['token']
+                'user' => $user,
+                'token' => $token
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -75,7 +91,7 @@ class AuthController extends Controller
     public function logout()
     {
         try {
-            $this->authService->logout();
+            Auth::user()->currentAccessToken()->delete();
             return response()->json([
                 'message' => 'Logout successful'
             ]);

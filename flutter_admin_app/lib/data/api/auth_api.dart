@@ -6,38 +6,42 @@ class AuthApi {
 
   AuthApi(this.apiClient);
 
-Future<User> login(String email, String password) async {
-  try {
-    final response = await apiClient.post('/v1/login', body: {
-      'email': email,
-      'password': password,
-    });
+  Future<User> login(String email, String password) async {
+    try {
+      final response = await apiClient.post('/v1/login', body: {
+        'email': email,
+        'password': password,
+      });
 
-    // Pastikan response memiliki token dan user
-    if (response['token'] == null || response['user'] == null) {
-      throw Exception('Invalid login response');
+      // Pastikan response memiliki token dan user
+      if (response['token'] == null || response['user'] == null) {
+        throw Exception('Invalid login response');
+      }
+
+      // Simpan token ke secure storage
+      await apiClient.saveToken(response['token']);
+
+      User user = User.fromJson(response['user']);
+      
+      // Tambahkan token ke user
+      user = User(
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        token: response['token'], // Tambahkan token
+        profilePicture: user.profilePicture,
+        role: user.role,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      );
+
+      return user;
+    } catch (e) {
+      print('Login error: $e');
+      rethrow;
     }
-
-    User user = User.fromJson(response['user']);
-    
-    // Tambahkan token ke user
-    user = User(
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      token: response['token'], // Tambahkan token
-      profilePicture: user.profilePicture,
-      role: user.role,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    );
-
-    return user;
-  } catch (e) {
-    print('Login error: $e');
-    rethrow;
   }
-}
+
   Future<User> register({
     required String name, 
     required String email, 
@@ -50,10 +54,8 @@ Future<User> login(String email, String password) async {
         'password': password,
       });
 
-      await apiClient.secureStorage.write(
-        key: 'auth_token', 
-        value: response['token']
-      );
+      // Simpan token ke secure storage menggunakan helper method dari ApiClient
+      await apiClient.saveToken(response['token']);
 
       return User.fromJson(response['user']);
     } catch (e) {
@@ -64,7 +66,7 @@ Future<User> login(String email, String password) async {
   Future<void> logout() async {
     try {
       await apiClient.post('/v1/logout');
-      await apiClient.secureStorage.delete(key: 'auth_token');
+      await apiClient.deleteToken();
     } catch (e) {
       rethrow;
     }

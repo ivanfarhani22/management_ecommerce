@@ -20,6 +20,7 @@ use App\Http\Controllers\ProfileController;
 // API Controllers
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\CartController as APICartController;
+use App\Http\Controllers\API\CategoryController as APICategoryController;
 use App\Http\Controllers\API\OrderController as APIOrderController;
 use App\Http\Controllers\API\ProductController as APIProductController;
 use App\Http\Controllers\API\UserController;

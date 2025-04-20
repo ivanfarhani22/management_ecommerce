@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/custom_button.dart';
-import '../../widgets/error_dialog.dart';
+import '../../../data/api/auth_api.dart';
+import '../../../data/api/api_client.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,28 +18,63 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  
+  // Menggunakan ApiClient yang sudah ada
+  final apiClient = ApiClient(
+    baseUrl: 'http://127.0.0.1:8000/api', // Perhatikan baseUrl tidak termasuk endpoint
+    storage: const FlutterSecureStorage(),
+  );
+  
+  // Menggunakan instance AuthApi dengan ApiClient yang sudah ada
+  late final AuthApi _authApi = AuthApi(apiClient);
 
   void _login() async {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() => _isLoading = true);
 
       try {
-        // TODO: Implement actual login logic
-        await Future.delayed(const Duration(seconds: 2));
+        // Menggunakan AuthApi untuk login
+        final user = await _authApi.login(
+          _emailController.text.trim(),
+          _passwordController.text,
+        );
+        
+        // Menyimpan token ke secure storage - ini sudah otomatis dilakukan di AuthApi
+        if (user.token != null) {
+          await apiClient.secureStorage.write(
+            key: 'auth_token',
+            value: user.token!,
+          );
+        }
         
         // Navigate to dashboard on successful login
         Navigator.of(context).pushReplacementNamed('/dashboard');
       } catch (e) {
         // Show error dialog
-        ErrorDialog.show(
-          context, 
-          title: 'Login Failed', 
-          message: e.toString()
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Login Failed'),
+            content: Text(e.toString()),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
         );
       } finally {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -52,8 +89,13 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // TODO: Replace with your logo
-                FlutterLogo(size: 100),
+                // Logo
+                const SizedBox(
+                  height: 100,
+                  child: Center(
+                    child: FlutterLogo(size: 80),
+                  ),
+                ),
                 const SizedBox(height: 30),
                 
                 const Text(
@@ -126,6 +168,21 @@ class _LoginScreenState extends State<LoginScreen> {
                   text: 'Login',
                   onPressed: _login,
                   isLoading: _isLoading,
+                ),
+                
+                const SizedBox(height: 20),
+                
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("Don't have an account?"),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pushNamed('/register');
+                      },
+                      child: const Text('Register'),
+                    ),
+                  ],
                 ),
               ],
             ),

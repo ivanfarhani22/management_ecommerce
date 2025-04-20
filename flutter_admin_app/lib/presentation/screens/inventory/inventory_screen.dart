@@ -16,10 +16,12 @@ class InventoryScreen extends StatefulWidget {
 
 class _InventoryScreenState extends State<InventoryScreen> {
   List<Map<String, dynamic>> _products = [];
+  Map<int, String> _categoryNames = {}; // Add this to store category names
+  List<String> _categoryList = ['All']; // For filter dropdown
   bool _isLoading = true;
   bool _hasError = false;
   String _errorMessage = '';
-  String _debugResponse = ''; // Add this for debugging
+  String _debugResponse = '';
 
   String _searchQuery = '';
   String _selectedCategory = 'All';
@@ -29,7 +31,60 @@ class _InventoryScreenState extends State<InventoryScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchProducts();
+    _fetchCategories().then((_) => _fetchProducts());
+  }
+
+  // Add this new method to fetch categories
+  Future<void> _fetchCategories() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConfig.baseApiUrl}/v1/categories'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(AppConfig.apiTimeout);
+
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        
+        // Try to handle different response structures
+        List<dynamic>? categoriesData;
+        
+        if (decoded is List) {
+          categoriesData = decoded;
+        } else if (decoded is Map) {
+          if (decoded.containsKey('data')) {
+            categoriesData = decoded['data'] as List?;
+          } else if (decoded.containsKey('categories')) {
+            categoriesData = decoded['categories'] as List?;
+          }
+        }
+        
+        if (categoriesData != null) {
+          // Initialize our categories map and list
+          _categoryList = ['All']; // Reset with 'All' as first option
+          
+          for (var category in categoriesData) {
+            if (category is Map) {
+              int id = category['id'] is int 
+                  ? category['id'] 
+                  : int.tryParse(category['id'].toString()) ?? 0;
+                  
+              String name = category['name']?.toString() ?? 'Unknown';
+              
+              setState(() {
+                _categoryNames[id] = name;
+                _categoryList.add(name); // Add to dropdown options
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching categories: $e');
+      // Continue to fetch products even if categories fail
+    }
   }
 
   Future<void> _fetchProducts() async {
@@ -136,7 +191,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return _products.where((product) {
       // Added null checks
       final productName = product['name']?.toString() ?? '';
-      final productCategory = product['category']?.toString() ?? '';
+      
+      // Now we get the category name from our map using category_id
+      final categoryId = int.tryParse(product['category_id']?.toString() ?? '0') ?? 0;
+      final categoryName = _categoryNames[categoryId] ?? 'Uncategorized';
+      
       final productStock = product['stock']?.toString() ?? '0';
       
       final matchesSearch = productName
@@ -144,7 +203,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           .contains(_searchQuery.toLowerCase());
       
       final matchesCategory = _selectedCategory == 'All' || 
-          productCategory == _selectedCategory;
+          categoryName == _selectedCategory;
       
       final matchesStockFilter = !_showLowStockOnly || 
           (int.tryParse(productStock) ?? 0) < 75; // Example low stock threshold with null safety
@@ -201,7 +260,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         onPressed: () {
           Navigator.of(context).pushNamed('/inventory/add-product').then((_) {
             // Refresh products list when returning from add product screen
-            _fetchProducts();
+            _fetchCategories().then((_) => _fetchProducts());
           });
         },
         child: const Icon(Icons.add),
@@ -255,7 +314,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 const SizedBox(height: 16),
               ],
               ElevatedButton(
-                onPressed: _fetchProducts,
+                onPressed: () {
+                  _fetchCategories().then((_) => _fetchProducts());
+                },
                 child: const Text('Retry'),
               ),
             ],
@@ -283,7 +344,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
 
     return RefreshIndicator(
-      onRefresh: _fetchProducts,
+      onRefresh: () => _fetchCategories().then((_) => _fetchProducts()),
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: _filteredProducts.length,
@@ -293,13 +354,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: ProductCard(
               product: product,
+              categoryNames: _categoryNames, // Pass the category names map
               onEdit: () {
                 Navigator.of(context).pushNamed(
                   '/inventory/edit-product',
                   arguments: product,
                 ).then((_) {
                   // Refresh products list when returning from edit product screen
-                  _fetchProducts();
+                  _fetchCategories().then((_) => _fetchProducts());
                 });
               },
             ),
@@ -409,6 +471,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             return StockFilter(
               selectedCategory: _selectedCategory,
               showLowStockOnly: _showLowStockOnly,
+              categories: _categoryList, // Pass the updated category list
               onCategoryChanged: (category) {
                 setSheetState(() {
                   _selectedCategory = category;

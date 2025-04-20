@@ -15,7 +15,7 @@ class CrossPlatformImagePicker extends StatefulWidget {
   final String? placeholderText;
 
   const CrossPlatformImagePicker({
-    Key? key,
+    super.key,
     required this.onImageSelected,
     this.allowCropping = false,
     this.width = 200,
@@ -23,7 +23,7 @@ class CrossPlatformImagePicker extends StatefulWidget {
     this.backgroundColor,
     this.iconColor,
     this.placeholderText,
-  }) : super(key: key);
+  });
 
   @override
   _CrossPlatformImagePickerState createState() => _CrossPlatformImagePickerState();

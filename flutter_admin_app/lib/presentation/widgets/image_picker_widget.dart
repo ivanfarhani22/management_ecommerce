@@ -1,144 +1,228 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'dart:io';
 
 class ImagePickerWidget extends StatefulWidget {
-  final Function(File?) onImageSelected;
-  final String? initialImagePath;
+  final String? initialImageUrl;
+  final Function(File) onImageSelected;
   final bool allowCropping;
-  final bool allowMultiple;
+  final double size;
 
   const ImagePickerWidget({
-    super.key,
+    Key? key,
+    this.initialImageUrl,
     required this.onImageSelected,
-    this.initialImagePath,
     this.allowCropping = false,
-    this.allowMultiple = false,
-  });
+    this.size = 150.0,
+  }) : super(key: key);
 
   @override
   _ImagePickerWidgetState createState() => _ImagePickerWidgetState();
 }
 
 class _ImagePickerWidgetState extends State<ImagePickerWidget> {
-  File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.initialImagePath != null) {
-      _selectedImage = File(widget.initialImagePath!);
-    }
-  }
+  File? _selectedImage;
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final pickedFile = await _picker.pickImage(
+      final XFile? picked = await _picker.pickImage(
         source: source,
-        // Add image cropping if allowed
-        maxWidth: 1800,
-        maxHeight: 1800,
-        imageQuality: 85,
+        maxWidth: 1000,
+        maxHeight: 1000,
+        imageQuality: 80,
       );
 
-      if (pickedFile != null) {
+      if (picked != null) {
+        File imageFile = File(picked.path);
+        
+        if (widget.allowCropping) {
+          final croppedFile = await _cropImage(imageFile);
+          if (croppedFile != null) {
+            imageFile = croppedFile;
+          } else {
+            // User canceled cropping
+            return;
+          }
+        }
+
         setState(() {
-          _selectedImage = File(pickedFile.path);
+          _selectedImage = imageFile;
         });
-        widget.onImageSelected(_selectedImage);
+        
+        widget.onImageSelected(imageFile);
       }
     } catch (e) {
+      debugPrint('Error picking image: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking image: $e')),
+        const SnackBar(
+          content: Text('Error saat memilih gambar. Silakan coba lagi.'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
 
-  void _showImageSourceDialog() {
-    showModalBottomSheet(
-      context: context,
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(Icons.camera_alt),
-                title: Text('Take a Photo'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _pickImage(ImageSource.camera);
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.photo_library),
-                title: Text('Choose from Gallery'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _pickImage(ImageSource.gallery);
-                },
-              ),
-              if (_selectedImage != null)
-                ListTile(
-                  leading: Icon(Icons.delete),
-                  title: Text('Remove Photo'),
-                  onTap: () {
-                    setState(() {
-                      _selectedImage = null;
-                    });
-                    widget.onImageSelected(null);
-                    Navigator.of(context).pop();
-                  },
-                ),
-            ],
-          ),
-        );
-      },
+  Future<File?> _cropImage(File imageFile) async {
+  try {
+    final croppedFile = await ImageCropper().cropImage(
+      sourcePath: imageFile.path,
+      aspectRatioPresets: [
+        CropAspectRatioPreset.square,
+        CropAspectRatioPreset.ratio3x2,
+        CropAspectRatioPreset.original,
+      ],
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop Image',
+          toolbarColor: Theme.of(context).primaryColor,
+          toolbarWidgetColor: Colors.white,
+          initAspectRatio: CropAspectRatioPreset.original,
+          lockAspectRatio: false,
+        ),
+        IOSUiSettings(
+          title: 'Crop Image',
+        ),
+      ],
+    );
+
+    if (croppedFile != null) {
+      return File(croppedFile.path);
+    }
+  } catch (e) {
+    debugPrint('Error cropping image: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Error saat memotong gambar. Silakan coba lagi.'),
+        backgroundColor: Colors.red,
+      ),
     );
   }
+  return null;
+}
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _showImageSourceDialog,
-      child: Container(
-        width: 150,
-        height: 150,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: _selectedImage != null
-            ? ClipRRect(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Stack(
+          alignment: Alignment.bottomRight,
+          children: [
+            Container(
+              width: widget.size,
+              height: widget.size,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
                 borderRadius: BorderRadius.circular(10),
-                child: Image.file(
-                  _selectedImage!,
-                  fit: BoxFit.cover,
-                  width: 150,
-                  height: 150,
-                ),
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.camera_alt,
-                    color: Colors.grey[600],
-                    size: 50,
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Add Photo',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
+                border: Border.all(color: Colors.grey[300]!),
               ),
-      ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: _selectedImage != null
+                    ? Image.file(
+                        _selectedImage!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          debugPrint('Error loading local image: $error');
+                          return const Icon(Icons.broken_image, size: 50, color: Colors.grey);
+                        },
+                      )
+                    : widget.initialImageUrl != null
+                        ? Image.network(
+                            widget.initialImageUrl!,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  value: loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded / 
+                                        loadingProgress.expectedTotalBytes!
+                                      : null,
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              debugPrint('Error loading network image: $error');
+                              return Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Gagal memuat gambar',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                  ),
+                                ],
+                              );
+                            },
+                          )
+                        : const Icon(Icons.image, size: 50, color: Colors.grey),
+              ),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.add_a_photo, color: Colors.white),
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return SafeArea(
+                        child: Wrap(
+                          children: [
+                            ListTile(
+                              leading: const Icon(Icons.photo_library),
+                              title: const Text('Pilih dari Galeri'),
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                _pickImage(ImageSource.gallery);
+                              },
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.photo_camera),
+                              title: const Text('Ambil Foto'),
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                _pickImage(ImageSource.camera);
+                              },
+                            ),
+                            if (_selectedImage != null || widget.initialImageUrl != null)
+                              ListTile(
+                                leading: const Icon(Icons.delete, color: Colors.red),
+                                title: const Text('Hapus Gambar', style: TextStyle(color: Colors.red)),
+                                onTap: () {
+                                  Navigator.of(context).pop();
+                                  setState(() {
+                                    _selectedImage = null;
+                                  });
+                                  // Pass null to indicate image was removed
+                                  // Note: This requires updating the parent widget to handle null
+                                  // widget.onImageSelected(null);
+                                },
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Tap untuk mengubah gambar',
+          style: TextStyle(color: Colors.grey[600], fontSize: 12),
+        ),
+      ],
     );
   }
 }
