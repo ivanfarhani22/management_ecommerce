@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ config('app.name', 'E-Commerce Platform') }}</title>
+    <title>Digital Imam Store</title>
     
     <!-- CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -19,7 +19,7 @@
         <nav class="bg-white shadow-lg border-b border-gray-200">
             <div class="container mx-auto px-6 py-4 flex justify-between items-center">
                 <a href="{{ route('home') }}" class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition duration-300">
-                    {{ config('app.name', 'E-Commerce') }}
+                    Imam Store
                 </a>
                 
                 <div class="flex items-center space-x-6">

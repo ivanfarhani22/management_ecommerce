@@ -15,7 +15,7 @@ import 'presentation/screens/dashboard/dashboard_screen.dart';
 import 'presentation/blocs/auth/auth_bloc.dart';
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +66,7 @@ class MyApp extends StatelessWidget {
       builder: (context, child) {
         return MediaQuery(
           // Prevent text scaling affecting app design
-          data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
+          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(1.0)),
           child: child!,
         );
       },
