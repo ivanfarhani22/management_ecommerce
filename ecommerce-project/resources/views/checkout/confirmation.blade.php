@@ -1,84 +1,119 @@
 @extends('layouts.app')
-
+@section('show_back_button')
+@endsection
 @section('content')
 <div class="container mx-auto px-4 py-8">
-    <div class="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-8 text-center">
-        <div class="mb-6">
-            <svg class="mx-auto h-16 w-16 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <h1 class="text-3xl font-bold mt-4">Order Confirmed!</h1>
-            <p class="text-gray-600 mt-2">Thank you for your purchase.</p>
+    <h1 class="text-3xl font-bold mb-6">Confirm Your Order</h1>
+    <div class="grid md:grid-cols-3 gap-6">
+        {{-- Checkout Steps Navigation --}}
+        <div class="md:col-span-1 bg-white shadow-md rounded-lg p-4">
+            <h3 class="text-xl font-bold mb-4">Checkout Progress</h3>
+            <ul class="space-y-2">
+                <li class="text-gray-600">1. Customer Information</li>
+                <li class="text-gray-600">2. Delivery Method</li>
+                <li class="text-gray-600">3. Payment</li>
+                <li class="text-blue-500 font-semibold">4. Confirmation</li>
+            </ul>
         </div>
-
-        <div class="bg-gray-100 rounded-lg p-4 mb-6">
-            <h2 class="text-xl font-semibold mb-2">Order Details</h2>
-            <p class="text-gray-700">
-                <strong>Order Number:</strong> {{ $order->order_number }}<br>
-                <strong>Date:</strong> {{ $order->created_at->format('d M Y H:i') }}
-            </p>
-        </div>
-
-        <div class="grid md:grid-cols-2 gap-4 mb-6">
-            <div>
-                <h3 class="font-semibold mb-2">Shipping Information</h3>
-                <p class="text-gray-700">
-                    {{ $order->shipping_name }}<br>
-                    {{ $order->shipping_address }}<br>
-                    {{ $order->shipping_city }}, {{ $order->shipping_postal_code }}
-                </p>
-            </div>
-
-            <div>
-                <h3 class="font-semibold mb-2">Payment Method</h3>
-                <p class="text-gray-700">
-                    {{ ucfirst(str_replace('_', ' ', $order->payment_method)) }}
-                </p>
-            </div>
-        </div>
-
-        <div class="bg-gray-100 rounded-lg p-4 mb-6">
-            <h3 class="text-xl font-semibold mb-2">Order Summary</h3>
-            <div class="space-y-2">
-                @foreach($order->items as $item)
-                    <div class="flex justify-between">
-                        <span>{{ $item->product_name }} ({{ $item->quantity }}x)</span>
-                        <span>{{ number_format($item->price * $item->quantity, 2) }} IDR</span>
-                    </div>
-                @endforeach
-                <hr class="my-2">
-                <div class="flex justify-between font-semibold">
-                    <span>Total</span>
-                    <span>{{ number_format($order->total_amount, 2) }} IDR</span>
+        {{-- Order Confirmation --}}
+        <div class="md:col-span-2 bg-white shadow-md rounded-lg p-6">
+            <h2 class="text-2xl font-bold mb-4">Order Summary</h2>
+            
+            <div class="grid md:grid-cols-2 gap-4 mb-6">
+                {{-- Customer Details --}}
+                <div class="bg-gray-50 p-4 rounded-md">
+                    <h3 class="font-semibold mb-2">Customer Information</h3>
+                    <p>
+                        {{ $customerInfo['first_name'] }} {{ $customerInfo['last_name'] }}<br>
+                        {{ $customerInfo['email'] }}<br>
+                        {{ $customerInfo['phone'] }}
+                    </p>
+                </div>
+                
+                {{-- Shipping Details --}}
+                <div class="bg-gray-50 p-4 rounded-md">
+                    <h3 class="font-semibold mb-2">Shipping Address</h3>
+                    <p>
+                        {{ $address->street_address }}<br>
+                        {{ $address->city }}, {{ $address->state }} {{ $address->postal_code }}<br>
+                        {{ $address->country }}
+                    </p>
                 </div>
             </div>
-        </div>
-
-        <div class="space-x-4">
-            <a href="{{ route('orders.detail', $order->id) }}" 
-               class="bg-blue-500 text-white px-6 py-3 rounded-md hover:bg-blue-600">
-                View Order Details
-            </a>
-            <a href="{{ route('catalog') }}" 
-               class="bg-gray-200 text-gray-800 px-6 py-3 rounded-md hover:bg-gray-300">
-                Continue Shopping
-            </a>
+            
+            {{-- Delivery Method --}}
+            <div class="bg-gray-50 p-4 rounded-md mb-4">
+                <h3 class="font-semibold mb-2">Delivery Method</h3>
+                <p>
+                    {{ $deliveryMethods[$delivery['delivery_method']]['name'] }} ({{ $deliveryMethods[$delivery['delivery_method']]['days'] }} business days)
+                </p>
+            </div>
+            
+            {{-- Payment Method --}}
+            <div class="bg-gray-50 p-4 rounded-md mb-4">
+                <h3 class="font-semibold mb-2">Payment Method</h3>
+                <p>
+                    {{ $paymentMethods[$payment['payment_method']] }}
+                </p>
+            </div>
+            
+            {{-- Order Items --}}
+            <div class="border rounded-md mb-4">
+                <h3 class="font-semibold p-4 border-b">Order Items</h3>
+                <div class="divide-y">
+                    @foreach($cart->cartItems as $item)
+                        <div class="p-4 flex justify-between items-center">
+                            <div class="flex items-center">
+                                @if($item->product->image)
+                                    <img src="{{ asset('storage/'.$item->product->image) }}" alt="{{ $item->product->name }}" class="w-16 h-16 object-cover rounded mr-4">
+                                @else
+                                    <div class="w-16 h-16 bg-gray-200 rounded mr-4 flex items-center justify-center">
+                                        <span class="text-gray-500">No Image</span>
+                                    </div>
+                                @endif
+                                <div>
+                                    <p class="font-semibold">{{ $item->product->name }}</p>
+                                    <p class="text-sm text-gray-500">Quantity: {{ $item->quantity }}</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p>{{ number_format($item->product->price, 0, ',', '.') }} IDR</p>
+                                <p class="font-semibold">{{ number_format($item->product->price * $item->quantity, 0, ',', '.') }} IDR</p>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+            
+            {{-- Order Totals --}}
+            <div class="bg-gray-50 p-4 rounded-md mb-6">
+                <div class="flex justify-between mb-2">
+                    <span>Subtotal:</span>
+                    <span>{{ number_format($subtotal, 0, ',', '.') }} IDR</span>
+                </div>
+                <div class="flex justify-between mb-2">
+                    <span>Shipping:</span>
+                    <span>{{ number_format($deliveryCost, 0, ',', '.') }} IDR</span>
+                </div>
+                <div class="flex justify-between font-bold text-lg">
+                    <span>Total:</span>
+                    <span>{{ number_format($total, 0, ',', '.') }} IDR</span>
+                </div>
+            </div>
+            
+            {{-- Action Buttons --}}
+            <div class="flex justify-between">
+                <a href="{{ route('checkout.payment') }}" class="bg-gray-300 text-gray-800 py-2 px-6 rounded hover:bg-gray-400">
+                    Back to Payment
+                </a>
+                <form action="{{ route('checkout.complete') }}" method="POST">
+                    @csrf
+                    <button type="submit" class="bg-blue-600 text-white py-2 px-6 rounded hover:bg-blue-700">
+                        Place Order
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 </div>
 @endsection
-
-@push('scripts')
-<script>
-    // Send order confirmation email or perform any additional tracking
-    document.addEventListener('DOMContentLoaded', function() {
-        // Example: Send order confirmation via AJAX
-        fetch('{{ route('orders.send-confirmation', $order->id) }}', {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            }
-        });
-    });
-</script>
-@endpush

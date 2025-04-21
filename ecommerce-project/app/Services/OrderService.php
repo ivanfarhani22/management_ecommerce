@@ -57,6 +57,16 @@ class OrderService
         });
     }
 
+    // Add this method to match what's being called in the controller
+    public function getOrdersByUser($userId)
+    {
+        return Order::where('user_id', $userId)
+            ->with(['orderItems.product', 'payment'])
+            ->latest()
+            ->get();
+    }
+
+    // Keep the existing method as it might be used elsewhere
     public function getOrderHistory()
     {
         return Order::where('user_id', Auth::id())

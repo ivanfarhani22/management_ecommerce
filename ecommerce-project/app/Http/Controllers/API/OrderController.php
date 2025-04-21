@@ -14,7 +14,6 @@ class OrderController extends Controller
 
     public function __construct(OrderService $orderService)
     {
-        $this->middleware('auth:sanctum');
         $this->orderService = $orderService;
     }
 
@@ -80,4 +79,18 @@ class OrderController extends Controller
             ], 400);
         }
     }
+    public function updateStatus(Order $order, Request $request)
+{
+    $validated = $request->validate([
+        'status' => 'required|string|in:pending,processing,completed,cancelled',
+    ]);
+    
+    $order->status = $validated['status'];
+    $order->save();
+    
+    return response()->json([
+        'message' => 'Order status updated successfully',
+        'order' => $order
+    ]);
+}
 }

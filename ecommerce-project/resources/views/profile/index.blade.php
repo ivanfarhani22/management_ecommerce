@@ -1,4 +1,6 @@
 @extends('layouts.app')
+@section('show_back_button')
+@endsection
 
 @section('content')
 <div class="grid md:grid-cols-12 gap-6">

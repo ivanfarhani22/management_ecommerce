@@ -12,64 +12,56 @@ class CartService
     public function getCart()
     {
         $user = Auth::user();
-        return Cart::firstOrCreate(['user_id' => $user->id]);
+        
+        if (!$user) {
+            abort(403, 'User must be logged in to use cart');
+        }
+        
+        // Ambil cart berdasarkan user_id
+        $cart = Cart::firstOrCreate(['user_id' => $user->id]);
+        
+        return $cart;
     }
 
     public function addToCart(Product $product, int $quantity = 1)
     {
         $cart = $this->getCart();
 
+        // Cek apakah produk sudah ada di cart
         $cartItem = $cart->cartItems()->where('product_id', $product->id)->first();
 
         if ($cartItem) {
+            // Update quantity jika sudah ada
             $cartItem->increment('quantity', $quantity);
         } else {
+            // Buat cart item baru jika belum ada
             $cart->cartItems()->create([
+                'cart_id' => $cart->id, // tambahkan ini secara eksplisit
                 'product_id' => $product->id,
                 'quantity' => $quantity
-            ]);
+            ]);            
         }
 
         return $cart->refresh();
-    }
-
-    public function removeFromCart(Product $product)
-    {
-        $cart = $this->getCart();
-        $cart->cartItems()->where('product_id', $product->id)->delete();
-
-        return $cart->refresh();
-    }
-
-    public function updateCartItemQuantity(Product $product, int $quantity)
-    {
-        $cart = $this->getCart();
-        $cartItem = $cart->cartItems()->where('product_id', $product->id)->first();
-
-        if ($cartItem) {
-            if ($quantity <= 0) {
-                $cartItem->delete();
-            } else {
-                $cartItem->update(['quantity' => $quantity]);
-            }
-        }
-
-        return $cart->refresh();
-    }
-
-    public function clearCart()
-    {
-        $cart = $this->getCart();
-        $cart->cartItems()->delete();
-
-        return $cart;
     }
 
     public function calculateCartTotal()
     {
         $cart = $this->getCart();
-        return $cart->cartItems->sum(function ($item) {
-            return $item->product->price * $item->quantity;
-        });
+        
+        $total = 0;
+        foreach ($cart->cartItems as $item) {
+            if ($item->product) {
+                $total += $item->product->price * $item->quantity;
+            }
+        }
+        
+        return $total;
     }
+    public function clearCart()
+{
+    $cart = $this->getCart();
+    $cart->cartItems()->delete();
+    return true;
+}
 }

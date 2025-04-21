@@ -1,4 +1,6 @@
 @extends('layouts.app')
+@section('show_back_button')
+@endsection
 
 @section('content')
 <div class="container">
