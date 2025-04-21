@@ -1,4 +1,6 @@
 @extends('layouts.app')
+@section('show_back_button')
+@endsection
 
 @section('content')
 <div class="container mx-auto px-4 py-8">
@@ -36,12 +38,14 @@
             </div>
 
             <div class="flex space-x-4">
-                <form action="{{ route('cart.add', $product->id) }}" method="POST">
-                    @csrf
-                    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                        Add to Cart
-                    </button>
-                </form>
+            <form action="{{ route('cart.add') }}" method="POST">
+                @csrf
+                <input type="hidden" name="product_id" value="{{ $product->id }}">
+                <input type="number" name="quantity" value="1" min="1" class="border rounded px-2 py-1 w-16 text-center">
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    Add to Cart
+                </button>
+            </form>
                 <button class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
                     Buy Now
                 </button>

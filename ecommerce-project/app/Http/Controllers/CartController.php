@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\CartService;
 use App\Models\Product;
+use App\Models\CartItem;
 use Illuminate\Http\Request;
 
 class CartController extends Controller
@@ -18,13 +19,14 @@ class CartController extends Controller
     public function index()
     {
         $cart = $this->cartService->getCart();
-        $cartItems = $cart->cartItems; // Assuming this is the correct relationship
+        $cartItems = $cart->cartItems()->with('product')->get(); // Pastikan relasi product dimuat
         $total = $this->cartService->calculateCartTotal();
 
         return view('cart.index', compact('cartItems', 'total'));
     }
 
-    public function addToCart(Request $request)
+    // Method untuk menangani route cart.add
+    public function add(Request $request)
     {
         $request->validate([
             'product_id' => 'required|exists:products,id',
@@ -32,32 +34,55 @@ class CartController extends Controller
         ]);
 
         $product = Product::findOrFail($request->product_id);
-        $this->cartService->addToCart($product, $request->quantity ?? 1);
+        $quantity = $request->quantity ?? 1;
+        
+        $this->cartService->addToCart($product, $quantity);
 
         return redirect()->route('cart.index')
             ->with('success', 'Product added to cart');
     }
 
-    public function removeFromCart(Request $request)
+    // Method untuk menangani route cart.store (alternatif untuk add)
+    public function store(Request $request)
     {
-        $product = Product::findOrFail($request->product_id);
-        $this->cartService->removeFromCart($product);
-
-        return redirect()->route('cart.index')
-            ->with('success', 'Product removed from cart');
+        return $this->add($request); // Redirect ke method add
     }
 
-    public function updateQuantity(Request $request)
+    // Method untuk update quantity
+    public function update(Request $request, CartItem $cartItem)
     {
         $request->validate([
-            'product_id' => 'required|exists:products,id',
             'quantity' => 'required|integer|min:0'
         ]);
 
-        $product = Product::findOrFail($request->product_id);
-        $this->cartService->updateCartItemQuantity($product, $request->quantity);
+        if ($request->quantity == 0) {
+            $cartItem->delete();
+        } else {
+            $cartItem->update(['quantity' => $request->quantity]);
+        }
 
         return redirect()->route('cart.index')
             ->with('success', 'Cart updated');
     }
+
+    // Method untuk remove item
+    public function destroy(CartItem $cartItem)
+    {
+        $cartItem->delete();
+
+        return redirect()->route('cart.index')
+            ->with('success', 'Item removed from cart');
+    }
+    // Tambahkan method debug ini untuk pengujian
+public function debug()
+{
+    $user = Auth::user();
+    $cart = Cart::where('user_id', $user->id)->first();
+    
+    dd([
+        'user_id' => $user->id,
+        'cart' => $cart,
+        'cart_items' => $cart ? $cart->cartItems()->with('product')->get() : 'No cart found'
+    ]);
+}
 }

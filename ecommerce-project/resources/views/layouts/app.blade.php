@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Digital Imam Store</title>
+    <title>Digital Ecommerce</title>
     
     <!-- CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -19,7 +19,7 @@
         <nav class="bg-white shadow-lg border-b border-gray-200">
             <div class="container mx-auto px-6 py-4 flex justify-between items-center">
                 <a href="{{ route('home') }}" class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition duration-300">
-                    Imam Store
+                    Digital Ecommerce
                 </a>
                 
                 <div class="flex items-center space-x-6">
@@ -61,6 +61,17 @@
 
         <main class="container mx-auto px-6 py-8 flex-grow">
             <div class="bg-white shadow-xl rounded-lg p-6 min-h-[calc(100vh-300px)]">
+                <!-- Tombol Back (akan tampil hanya jika halaman punya section 'show_back_button') -->
+                @if(View::hasSection('show_back_button'))
+                    <div class="mb-6">
+                        <button onclick="window.history.back()" class="flex items-center text-blue-600 hover:text-blue-800 transition duration-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            Back
+                        </button>
+                    </div>
+                @endif
                 @yield('content')
             </div>
         </main>

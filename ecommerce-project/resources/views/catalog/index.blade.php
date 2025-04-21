@@ -1,4 +1,6 @@
 @extends('layouts.app')
+@section('show_back_button')
+@endsection
 
 @section('content')
 <div class="container mx-auto">
@@ -36,13 +38,13 @@
             <div class="grid grid-cols-3 gap-6">
                 @foreach($products as $product)
                     <div class="bg-white shadow-md rounded-lg overflow-hidden">
-                        <img src="{{ $product->image_url }}" alt="{{ $product->name }}" class="w-full h-48 object-cover">
+                        <img src="{{ $product->image ? asset('storage/' . $product->image) : asset('images/placeholder-product.png') }}" alt="{{ $product->name }}" class="w-full h-48 object-cover">
                         <div class="p-4">
                             <h3 class="text-xl font-semibold mb-2">{{ $product->name }}</h3>
                             <p class="text-gray-600 mb-2">{{ Str::limit($product->description, 100) }}</p>
                             <div class="flex justify-between items-center">
-                                <span class="text-lg font-bold text-blue-600">${{ number_format($product->price, 2) }}</span>
-                                <a href="{{ route('product.detail', $product->slug) }}" 
+                                <span class="text-lg font-bold text-blue-600">Rp{{ number_format($product->price, 2) }}</span>
+                                <a href="{{ route('products.detail', ['id' => $product->id]) }}" 
                                    class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
                                     View Details
                                 </a>

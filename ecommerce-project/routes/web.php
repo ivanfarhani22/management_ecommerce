@@ -35,6 +35,8 @@ Route::get('/catalog/category/{category}', [CatalogController::class, 'category'
 // Product Routes
 Route::get('/products', [ProductController::class, 'index'])->name('products.index');
 Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show');
+Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.detail');
+
 
 // Authentication Routes
 Route::middleware(['guest'])->group(function () {
@@ -64,17 +66,40 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/cart/{cartItem}', [CartController::class, 'update'])->name('cart.update');
     Route::delete('/cart/{cartItem}', [CartController::class, 'destroy'])->name('cart.destroy');
     Route::post('/cart/add', [CartController::class, 'add'])->name('cart.add');
+    Route::get('/cart/debug', [CartController::class, 'debug'])->name('cart.debug');
+    Route::delete('/cart/clear', [CartController::class, 'clear'])->name('cart.clear');
 
-    // Checkout Routes
-    Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
-    Route::post('/checkout', [CheckoutController::class, 'process'])->name('checkout.process');
+    // Multi-step Checkout Routes
+    Route::prefix('checkout')->group(function () {
+        // Step 1: Customer Information
+        Route::get('/', [CheckoutController::class, 'index'])->name('checkout.index');
+        Route::post('/customer-info', [CheckoutController::class, 'processCustomerInfo'])->name('checkout.customer-info');
+        
+        // Step 2: Delivery Method
+        Route::get('/delivery', [CheckoutController::class, 'delivery'])->name('checkout.delivery');
+        Route::post('/delivery', [CheckoutController::class, 'storeDelivery'])->name('checkout.store-delivery');
+        
+        // Step 3: Payment
+        Route::get('/payment', [CheckoutController::class, 'payment'])->name('checkout.payment');
+        Route::post('/payment', [CheckoutController::class, 'storePayment'])->name('checkout.store-payment');
+        
+        // Step 4: Confirmation
+        Route::get('/confirmation', [CheckoutController::class, 'confirmation'])->name('checkout.confirmation');
+        Route::post('/complete', [CheckoutController::class, 'complete'])->name('checkout.complete');
+        
+        // Success page
+        Route::get('/success/{order}', [CheckoutController::class, 'success'])->name('checkout.success');
+    });
 
     // Order Routes
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
     Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
     Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
-});
+
+    // Order confirmation email endpoint
+    Route::post('/orders/{order}/send-confirmation', [OrderController::class, 'sendConfirmation'])->name('orders.send-confirmation');
+    });
 
 // API Routes
 Route::prefix('api')->group(function () {
@@ -115,6 +140,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
 });
+
 // Error Routes
 Route::fallback(function () {
     return view('errors.404');

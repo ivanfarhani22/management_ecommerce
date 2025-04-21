@@ -39,6 +39,7 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::get('/orders', [OrderController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'store']);
     Route::get('/orders/{order}', [OrderController::class, 'show']);
+    Route::put('/orders/{order}/status', [OrderController::class, 'updateStatus']);
 
     // Cart
     Route::get('/cart', [CartController::class, 'index']);
