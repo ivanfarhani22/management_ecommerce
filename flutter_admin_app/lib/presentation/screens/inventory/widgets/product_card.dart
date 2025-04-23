@@ -43,7 +43,7 @@ class ProductCard extends StatelessWidget {
         // Jika gambar adalah path relatif API (misalnya "uploads/products/image.jpg")
         else if (!productImageUrl.startsWith('/') && !productImageUrl.contains('://')) {
           // Gabungkan dengan baseApiUrl
-          final fullImageUrl = 'http://127.0.0.1:8000/storage/$productImageUrl';
+          final fullImageUrl = '${AppConfig.storageBaseUrl}/$productImageUrl';
           // debugPrint('Image URL: http://127.0.0.1:8000/storage/$productImageUrl');
           return Image.network(
             fullImageUrl,

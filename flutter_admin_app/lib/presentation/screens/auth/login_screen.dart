@@ -5,6 +5,7 @@ import '../../widgets/custom_button.dart';
 import '../../../data/api/auth_api.dart';
 import '../../../data/api/api_client.dart';
 
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -19,9 +20,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   
-  // Menggunakan ApiClient yang sudah ada
+  // Modified: No longer passing baseUrl parameter
   final apiClient = ApiClient(
-    baseUrl: 'http://127.0.0.1:8000/api', // Perhatikan baseUrl tidak termasuk endpoint
     storage: const FlutterSecureStorage(),
   );
   
@@ -39,12 +39,9 @@ class _LoginScreenState extends State<LoginScreen> {
           _passwordController.text,
         );
         
-        // Menyimpan token ke secure storage - ini sudah otomatis dilakukan di AuthApi
+        // Menyimpan token ke secure storage - menggunakan metode dari ApiClient
         if (user.token != null) {
-          await apiClient.secureStorage.write(
-            key: 'auth_token',
-            value: user.token!,
-          );
+          await apiClient.saveToken(user.token!);
         }
         
         // Navigate to dashboard on successful login

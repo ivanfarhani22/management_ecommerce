@@ -16,7 +16,7 @@ class AppConfig {
       // For debugging: use different URL based on platform
       if (Platform.isAndroid) {
         // Your specific IP address for Android device testing
-        return 'http://192.168.1.6:8000/api';
+        return 'http://192.168.9.8:8000/api';
       } else {
         // Windows, macOS, Linux, etc.
         return 'http://127.0.0.1:8000/api';
@@ -25,6 +25,47 @@ class AppConfig {
       // Production environment
       return 'https://your-production-domain.com/api';  // Replace with your actual production API
     }
+  }
+  
+  // Get the appropriate storage URL for images
+  static String get storageBaseUrl {
+    if (kDebugMode) {
+      if (Platform.isAndroid) {
+        // Android emulator needs 10.0.2.2 to access host's localhost
+        // or use your specific IP for physical devices
+        return 'http://192.168.9.8:8000/storage';
+      } else {
+        // Windows, macOS, Linux, etc.
+        return 'http://127.0.0.1:8000/storage';
+      }
+    } else {
+      // Production environment
+      return 'https://your-production-domain.com/storage';
+    }
+  }
+  
+  // Try multiple storage URLs if the primary one fails
+  static List<String> get alternativeStorageUrls {
+    return [
+      'http://127.0.0.1:8000/storage',     // localhost
+      'http://10.0.2.2:8000/storage',      // Android emulator localhost
+      'http://192.168.9.8:8000/storage',   // Specific IP address
+    ];
+  }
+  
+  // Helper function to get image URL with fallbacks
+  static String getImageUrl(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) {
+      return ''; // Return empty string for null or empty paths
+    }
+    
+    // If it's already a full URL, return as is
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    
+    // Otherwise, use the storage base URL
+    return '$storageBaseUrl/$imagePath';
   }
   
   // API Token
@@ -63,12 +104,14 @@ class AppConfig {
     switch (environment) {
       case 'development':
         return {
-          'apiUrl': baseApiUrl,  // Use the dynamic getter
+          'apiUrl': baseApiUrl,
+          'storageUrl': storageBaseUrl,
           'logLevel': 'debug',
         };
       case 'production':
         return {
-          'apiUrl': baseApiUrl,  // Use the dynamic getter
+          'apiUrl': baseApiUrl,
+          'storageUrl': storageBaseUrl,
           'logLevel': 'error',
         };
       default:

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform, kIsWeb;
 
 class ImagePickerWidget extends StatefulWidget {
   final String? initialImageUrl;
@@ -37,7 +38,10 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
       if (picked != null) {
         File imageFile = File(picked.path);
         
-        if (widget.allowCropping) {
+        if (widget.allowCropping &&
+            !kIsWeb &&
+            (defaultTargetPlatform == TargetPlatform.android || 
+             defaultTargetPlatform == TargetPlatform.iOS)) {
           final croppedFile = await _cropImage(imageFile);
           if (croppedFile != null) {
             imageFile = croppedFile;
@@ -45,6 +49,8 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
             // User canceled cropping
             return;
           }
+        } else if (widget.allowCropping) {
+          debugPrint('Image cropping is not supported on this platform: ${defaultTargetPlatform.name}');
         }
 
         setState(() {
@@ -65,42 +71,42 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
   }
 
   Future<File?> _cropImage(File imageFile) async {
-  try {
-    final croppedFile = await ImageCropper().cropImage(
-      sourcePath: imageFile.path,
-      aspectRatioPresets: [
-        CropAspectRatioPreset.square,
-        CropAspectRatioPreset.ratio3x2,
-        CropAspectRatioPreset.original,
-      ],
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Image',
-          toolbarColor: Theme.of(context).primaryColor,
-          toolbarWidgetColor: Colors.white,
-          initAspectRatio: CropAspectRatioPreset.original,
-          lockAspectRatio: false,
-        ),
-        IOSUiSettings(
-          title: 'Crop Image',
-        ),
-      ],
-    );
+    try {
+      final croppedFile = await ImageCropper().cropImage(
+        sourcePath: imageFile.path,
+        aspectRatioPresets: [
+          CropAspectRatioPreset.square,
+          CropAspectRatioPreset.ratio3x2,
+          CropAspectRatioPreset.original,
+        ],
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Image',
+            toolbarColor: Theme.of(context).primaryColor,
+            toolbarWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.original,
+            lockAspectRatio: false,
+          ),
+          IOSUiSettings(
+            title: 'Crop Image',
+          ),
+        ],
+      );
 
-    if (croppedFile != null) {
-      return File(croppedFile.path);
+      if (croppedFile != null) {
+        return File(croppedFile.path);
+      }
+    } catch (e) {
+      debugPrint('Error cropping image: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error saat memotong gambar. Silakan coba lagi.'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
-  } catch (e) {
-    debugPrint('Error cropping image: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Error saat memotong gambar. Silakan coba lagi.'),
-        backgroundColor: Colors.red,
-      ),
-    );
+    return null;
   }
-  return null;
-}
 
   @override
   Widget build(BuildContext context) {

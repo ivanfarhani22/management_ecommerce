@@ -59,7 +59,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
         _currentImageUrl = imageUrl;
       } else {
         // Add the storage URL prefix
-        _currentImageUrl = 'http://127.0.0.1:8000/storage/$imageUrl';
+        _currentImageUrl = '${AppConfig.storageBaseUrl}/$imageUrl';
       }
       debugPrint('Image URL set to: $_currentImageUrl');
     }
