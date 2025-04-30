@@ -19,6 +19,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       appBar: const CustomAppBar(
         title: 'Dashboard',
+        showBackButton: false,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

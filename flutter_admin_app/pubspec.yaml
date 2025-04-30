@@ -85,6 +85,13 @@ dev_dependencies:
   # Mocking
   mocktail: ^1.0.0
 
+  flutter_launcher_icons: ^0.13.1
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/icons/logo.jpg"
+
 flutter:
   # Enable Material Design
   uses-material-design: true

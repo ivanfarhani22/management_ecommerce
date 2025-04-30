@@ -108,4 +108,9 @@ class AppRoutes {
   static void replaceWith(BuildContext context, String routeName, {Object? arguments}) {
     Navigator.pushReplacementNamed(context, routeName, arguments: arguments);
   }
+  
+  // Helper method to navigate and remove all previous routes
+  static void navigateToAndRemoveUntil(BuildContext context, String routeName, bool Function(Route<dynamic>) predicate, {Object? arguments}) {
+    Navigator.pushNamedAndRemoveUntil(context, routeName, predicate, arguments: arguments);
+  }
 }

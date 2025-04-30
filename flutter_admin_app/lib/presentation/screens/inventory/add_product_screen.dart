@@ -290,6 +290,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: true, // atau false, tergantung kebutuhanmu
+        iconTheme: IconThemeData(
+          color: const Color.fromARGB(255, 255, 255, 255), // Ganti warna sesuai kebutuhan
+        ),
         title: const Text('Tambah Produk Baru'),
       ),
       body: _isFetchingCategories

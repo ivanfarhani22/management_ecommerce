@@ -123,15 +123,15 @@ class ProductCard extends StatelessWidget {
                   Row(
                     children: [
                       Icon(
-                        productStock > 75 ? Icons.check_circle : Icons.warning,
-                        color: productStock > 75 ? Colors.green : Colors.orange,
+                        productStock > 10 ? Icons.check_circle : Icons.warning,
+                        color: productStock > 10 ? Colors.green : Colors.orange,
                         size: 16,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         'Stock: $productStock',
                         style: TextStyle(
-                          color: productStock > 75 ? Colors.green : Colors.orange,
+                          color: productStock > 10 ? Colors.green : Colors.orange,
                           fontWeight: FontWeight.w500,
                         ),
                       ),

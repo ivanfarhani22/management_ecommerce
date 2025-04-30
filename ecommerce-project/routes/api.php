@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 
 // API Controllers
 use App\Http\Controllers\API\AuthController;
@@ -23,6 +24,27 @@ Route::prefix('v1')->group(function () {
 
     // Categories
     Route::get('/categories', [CategoryController::class, 'index']);
+    
+    // User public endpoints (no authentication required)
+    Route::get('/users/{id}', [UserController::class, 'show']);
+    Route::post('/users/batch', [UserController::class, 'getMultipleUsers']);
+    Route::get('/users/batch', [UserController::class, 'getMultipleUsers']); // Added GET support
+    
+    // Debug route for troubleshooting
+    Route::get('/debug/users/batch', function (Request $request) {
+        $ids = $request->input('ids', []);
+        
+        return response()->json([
+            'success' => true,
+            'received' => [
+                'request_method' => $request->method(),
+                'content_type' => $request->header('Content-Type'),
+                'all_input' => $request->all(),
+                'ids_param' => $ids,
+                'parsed_ids' => is_string($ids) ? json_decode($ids, true) : $ids
+            ]
+        ]);
+    });
 });
 
 // ========== Protected API Routes (with Sanctum) ==========
@@ -34,6 +56,11 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     // Profile
     Route::get('/profile', [UserController::class, 'profile']);
     Route::put('/profile', [UserController::class, 'updateProfile']);
+
+    // Users Management (Admin only)
+    Route::get('/users', [UserController::class, 'index']);
+    Route::put('/users/{user}', [UserController::class, 'update']);
+    Route::delete('/users/{user}', [UserController::class, 'destroy']);
 
     // Orders
     Route::get('/orders', [OrderController::class, 'index']);
