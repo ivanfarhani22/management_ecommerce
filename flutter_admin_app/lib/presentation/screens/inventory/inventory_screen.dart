@@ -206,7 +206,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           categoryName == _selectedCategory;
       
       final matchesStockFilter = !_showLowStockOnly || 
-          (int.tryParse(productStock) ?? 0) < 75; // Example low stock threshold with null safety
+          (int.tryParse(productStock) ?? 0) < 10; // Example low stock threshold with null safety
 
       return matchesSearch && matchesCategory && matchesStockFilter;
     }).toList();
@@ -217,6 +217,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return Scaffold(
       appBar: const CustomAppBar(
         title: 'Inventory',
+        showBackButton: false,
       ),
       body: Column(
         children: [

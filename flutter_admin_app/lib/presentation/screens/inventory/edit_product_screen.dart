@@ -385,6 +385,10 @@ class _EditProductScreenState extends State<EditProductScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: true, // atau false, tergantung kebutuhanmu
+        iconTheme: IconThemeData(
+          color: const Color.fromARGB(255, 255, 255, 255), // Ganti warna sesuai kebutuhan
+        ),
         title: const Text('Edit Produk'),
         actions: [
           IconButton(
