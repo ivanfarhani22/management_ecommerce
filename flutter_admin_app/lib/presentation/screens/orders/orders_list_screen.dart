@@ -30,9 +30,9 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
   bool _showRecentOnly = false;
   final _secureStorage = const FlutterSecureStorage();
   
-  // Available status options for updating
-  final List<String> statusOptions = ['Pending', 'Processing', 'Completed', 'Cancelled'];
-  
+  // Available status options for updating - ensure these match exactly with backend values
+  final List<String> statusOptions = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+
   // For Bottom Navigation
   int _currentIndex = 2; // Set to 2 for Orders tab
   
@@ -404,13 +404,25 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
             totalAmount = double.tryParse(order['amount'].toString()) ?? 0.0;
           }
           
+          // Ensure status is a valid value that exists in statusOptions
+          String orderStatus = order['status']?.toString() ?? 'pending';
+          // Standardize status to lowercase for consistent validation
+          orderStatus = orderStatus.toLowerCase();
+          
+          // Validate status - if invalid, default to 'pending'
+          if (!statusOptions.contains(orderStatus)) {
+            debugPrint('Invalid status detected: $orderStatus. Using default: pending');
+            orderStatus = 'pending';
+          }
+          
           tempOrders.add({
             'id': order['id'].toString(),
             'customer': customerName,
             'total': totalAmount,
-            'status': _formatStatus(order['status'].toString()),
+            'status': _formatStatus(orderStatus),
             'date': DateTime.tryParse(order['created_at']) ?? DateTime.now(),
             'user_id': userId,
+            'raw_status': orderStatus, // Keep original value for API calls
           });
         }
         
@@ -481,6 +493,20 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
   }
 
   Future<void> updateOrderStatus(String orderId, String newStatus) async {
+    // Validate the newStatus to make sure it's one of the allowed values
+    final String apiStatus = newStatus.toLowerCase();
+    
+    // Check if status is valid
+    if (!statusOptions.contains(apiStatus)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Status tidak valid: $newStatus'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
     try {
       // Show loading dialog
       showDialog(
@@ -495,8 +521,7 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
 
       final headers = await _getAuthHeaders();
       
-      // Convert status to match backend format (lowercase)
-      final apiStatus = newStatus.toLowerCase();
+      debugPrint('Updating order status: $orderId to $apiStatus');
       
       // Send PUT request to update status
       final response = await http.put(
@@ -521,30 +546,37 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
         );
         fetchOrders();
       } else {
-        // Handle error
-        Map<String, dynamic>? errorData;
+        // Try to parse error message
+        String errorMsg = 'Gagal mengubah status pesanan';
+        
         try {
-          errorData = json.decode(response.body);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errorData?['message'] ?? 'Gagal mengubah status pesanan'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          final errorData = json.decode(response.body);
+          if (errorData['message'] != null) {
+            errorMsg = errorData['message'];
+          } else if (errorData['error'] != null) {
+            errorMsg = errorData['error'];
+          }
+          
+          debugPrint('Error updating status: $errorMsg');
         } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Gagal mengubah status pesanan: ${response.statusCode}'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          errorMsg = 'Gagal mengubah status pesanan: ${response.statusCode}';
+          debugPrint('Could not parse error response: $e');
         }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMsg),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } catch (e) {
       // Pop loading dialog if still showing
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
       }
+      
+      debugPrint('Exception when updating order status: $e');
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -555,81 +587,11 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
     }
   }
 
-  void _showStatusChangeDialog(Map<String, dynamic> order) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Ubah Status Pesanan #${order['id']}'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Pilih status baru:'),
-              const SizedBox(height: 16),
-              ...statusOptions.map((status) => 
-                ListTile(
-                  title: Text(status),
-                  selected: order['status'] == status,
-                  onTap: () {
-                    Navigator.pop(context);
-                    if (order['status'] != status) {
-                      updateOrderStatus(order['id'], status);
-                    }
-                  },
-                  tileColor: order['status'] == status ? Colors.grey.shade200 : null,
-                  leading: Icon(_getStatusIcon(status), color: _getStatusColor(status)),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   // Format status for display
   String _formatStatus(String status) {
     // Change first character to uppercase, rest to lowercase
     if (status.isEmpty) return '';
     return status[0].toUpperCase() + status.substring(1).toLowerCase();
-  }
-
-  // Get appropriate color for status
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return Colors.orange;
-      case 'processing':
-        return Colors.blue;
-      case 'completed':
-        return Colors.green;
-      case 'cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  // Get appropriate icon for status
-  IconData _getStatusIcon(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return Icons.hourglass_empty;
-      case 'processing':
-        return Icons.sync;
-      case 'completed':
-        return Icons.check_circle;
-      case 'cancelled':
-        return Icons.cancel;
-      default:
-        return Icons.help_outline;
-    }
   }
 
   List<Map<String, dynamic>> get filteredOrders {
@@ -747,7 +709,7 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
               IconButton(
                 icon: Icon(
                   Icons.person_search,
-                  color: const Color.fromARGB(255, 255, 255, 255), // Ganti warna di sini
+                  color: Colors.white,
                 ),
                 tooltip: 'Segarkan Nama Pelanggan',
                 onPressed: _isFetchingUserData ? null : _refreshAllCustomerNames,
@@ -768,7 +730,7 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
           IconButton(
             icon: Icon(
               Icons.filter_list,
-              color: const Color.fromARGB(255, 255, 255, 255), // Ganti warna di sini
+              color: Colors.white,
             ),
             onPressed: () {
               showModalBottomSheet(
@@ -823,20 +785,26 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
                   child: filteredOrders.isEmpty
                       ? _buildEmptyState()
                       : ListView.builder(
-                          itemCount: filteredOrders.length,
-                          padding: const EdgeInsets.all(12),
-                          itemBuilder: (context, index) {
-                            final order = filteredOrders[index];
-                            return OrderStatusCard(
-                              orderNumber: order['id'],
-                              customerName: order['customer'],
-                              total: order['total'],
-                              status: order['status'],
-                              date: order['date'],
-                              onTap: () => _viewOrderDetails(order['id']),
-                            );
-                          },
-                        ),
+                        itemCount: filteredOrders.length,
+                        padding: const EdgeInsets.all(12),
+                        itemBuilder: (context, index) {
+                          final order = filteredOrders[index];
+                          return OrderStatusCard(
+                            orderNumber: order['id'],
+                            customerName: order['customer'],
+                            total: order['total'],
+                            status: order['status'],
+                            date: order['date'],
+                            onTap: () => _viewOrderDetails(order['id']),
+                            onStatusChange: (String newStatus) {
+                              // Here we use the lowercase value for API consistency
+                              updateOrderStatus(order['id'], newStatus.toLowerCase());
+                            },
+                            // Pass available status options to the card
+                            statusOptions: statusOptions.map(_formatStatus).toList(),
+                          );
+                        },
+                      ),
                 ),
       bottomNavigationBar: _buildBottomNavigation(),
       floatingActionButton: FloatingActionButton(

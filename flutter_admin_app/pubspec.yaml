@@ -69,6 +69,13 @@ dependencies:
 
   # Logging
   get_it: ^7.6.0
+  
+  # URL handling and sharing
+  url_launcher: ^6.2.5
+  share_plus: ^7.2.1
+  
+  # Permissions
+  permission_handler: ^11.2.0
 
 dev_dependencies:
   # Testing
