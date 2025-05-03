@@ -60,6 +60,7 @@ dependencies:
   # PDF and Excel Export
   pdf: ^3.10.4
   excel: ^2.1.0
+  open_file: ^3.3.2
 
   # Routing
   go_router: ^12.1.1

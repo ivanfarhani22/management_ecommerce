@@ -3,18 +3,18 @@ import '../local/database_helper.dart';
 import '../models/order.dart';
 
 class OrderRepository {
-  final OrderApi orderApi;
+  final OrderService orderService;
   final DatabaseHelper databaseHelper;
 
   OrderRepository({
-    required this.orderApi,
+    required this.orderService,
     required this.databaseHelper,
   });
 
   Future<List<Order>> getAllOrders() async {
     try {
       // Fetch from API
-      final apiOrders = await orderApi.getAllOrders();
+      final apiOrders = await orderService.getAllOrders();
       
       // Cache orders in local database
       for (var order in apiOrders) {
@@ -29,10 +29,11 @@ class OrderRepository {
     }
   }
 
-  Future<Order> getOrderById(int orderId) async {
+  Future<Order> getOrderById(String orderId) async {
     try {
       // Try to fetch from API first
-      return await orderApi.getOrderById(orderId);
+      final orderDetails = await orderService.getOrderDetails(orderId);
+      return Order.fromJson(orderDetails);
     } catch (e) {
       // Fallback to local database
       final localOrder = await databaseHelper.query(
@@ -51,7 +52,7 @@ class OrderRepository {
 
   Future<Order> createOrder(Order order) async {
     try {
-      final createdOrder = await orderApi.createOrder(order);
+      final createdOrder = await orderService.createOrder(order);
       
       // Cache in local database
       await databaseHelper.insert('orders', createdOrder.toJson());
