@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -10,43 +10,34 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../../config/app_config.dart';
-import '../../widgets/app_bar.dart';
-import './widgets/order_timeline.dart';
-import './widgets/order_item_card.dart';
-import './widgets/customer_details_card.dart';
-import './widgets/payment_details_card.dart';
-import './widgets/shipping_details_card.dart';
+import 'package:open_file/open_file.dart';
+import '../../../data/api/order_api.dart';
+import '../../../config/app_config.dart'; // Added for AppConfig
 
 class OrderDetailsScreen extends StatefulWidget {
   final String orderId;
 
-  const OrderDetailsScreen({
-    Key? key,
-    required this.orderId,
-  }) : super(key: key);
+  const OrderDetailsScreen({super.key, required this.orderId});
 
   @override
   _OrderDetailsScreenState createState() => _OrderDetailsScreenState();
 }
 
 class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
+  // Use the imported OrderService, not a local declaration
+  final OrderService _orderService = OrderService();
+  final _secureStorage = const FlutterSecureStorage();
+  
+  // Add user cache for storing user information
+  final Map<String, Map<String, dynamic>> _userCache = {};
+  
   bool isLoading = true;
-  bool isUpdating = false;
   String errorMessage = '';
   Map<String, dynamic> orderDetails = {};
   List<Map<String, dynamic>> orderItems = [];
-  Map<String, dynamic> customerData = {};
-  Map<String, dynamic> shippingData = {};
-  Map<String, dynamic> paymentData = {};
-  
-  // For tracking status changes
-  String currentStatus = '';
-  String statusUpdateError = '';
-  bool isLoadingPdf = false;
-  
-  // Order status options - ensure these match backend values
-  final List<String> statusOptions = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+  Map<String, dynamic> shippingAddress = {};
+  Map<String, dynamic> customerInfo = {};
+  Map<String, dynamic> paymentInfo = {};
   
   // Format for currency
   final currencyFormat = NumberFormat.currency(
@@ -58,27 +49,127 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   // Format for date
   final dateFormat = DateFormat('dd MMM yyyy, HH:mm');
   
-  // Secure storage for auth token
-  final _secureStorage = const FlutterSecureStorage();
-
+  // Available status options for updating
+  final List<String> statusOptions = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+  
   @override
   void initState() {
     super.initState();
     fetchOrderDetails();
   }
   
-  // Get auth headers with token
+  // Add method to get auth headers for API requests
   Future<Map<String, String>> _getAuthHeaders() async {
     final token = await _secureStorage.read(key: 'auth_token');
-    
     return {
-      'Accept': 'application/json',
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer ${token ?? ''}',
+      'Authorization': 'Bearer $token',
     };
   }
   
-  // Handle unauthorized response
+  // Improved method to get user name by user_id
+  Future<Map<String, dynamic>> _getUserById(String userId) async {
+    // First check the cache
+    if (_userCache.containsKey(userId) && 
+        _userCache[userId]!.containsKey('name') && 
+        _userCache[userId]!['name'] != null) {
+      debugPrint('Using cached user data for user_id $userId');
+      return _userCache[userId]!;
+    }
+    
+    try {
+      debugPrint('Fetching user data for user_id: $userId');
+      
+      // Get auth headers for the request
+      final headers = await _getAuthHeaders();
+      
+      // Make API request to get user details
+      final response = await http.get(
+        Uri.parse('${AppConfig.baseApiUrl}/v1/users/$userId'),
+        headers: headers,
+      ).timeout(AppConfig.apiTimeout);
+      
+      // Log the response for debugging
+      debugPrint('User API response code: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final userData = json.decode(response.body);
+        
+        // Improved extraction logic with more specific error handling
+        String userName;
+        String userEmail = '';
+        String userPhone = '';
+        Map<String, dynamic> userDataMap = {};
+        
+        if (userData['success'] == true && userData['data'] != null) {
+          // Using new API structure
+          userDataMap = userData['data'];
+          userName = userDataMap['name'] ?? 'Unknown User';
+          userEmail = userDataMap['email'] ?? '';
+          userPhone = userDataMap['phone'] ?? userDataMap['phone_number'] ?? '';
+        } else if (userData['data'] != null) {
+          // Old API structure - fallback
+          userDataMap = userData['data'];
+          userName = userDataMap['name'] ?? 'Unknown User';
+          userEmail = userDataMap['email'] ?? '';
+          userPhone = userDataMap['phone'] ?? userDataMap['phone_number'] ?? '';
+        } else if (userData['name'] != null) {
+          // Direct name field
+          userName = userData['name'];
+          userEmail = userData['email'] ?? '';
+          userPhone = userData['phone'] ?? userData['phone_number'] ?? '';
+          userDataMap = userData;
+        } else {
+          // Default fallback
+          userName = 'Customer #$userId';
+          userDataMap = {'name': userName};
+        }
+        
+        // Create complete user info map
+        Map<String, dynamic> userInfo = {
+          'name': userName,
+          'email': userEmail,
+          'phone': userPhone,
+          'data': userDataMap,
+          'timestamp': DateTime.now().millisecondsSinceEpoch
+        };
+        
+        // Store in cache
+        _userCache[userId] = userInfo;
+        
+        debugPrint('Successfully fetched user data for $userId: $userName');
+        return userInfo;
+      } else if (response.statusCode == 401) {
+        _handleUnauthorized();
+        return {'name': 'Customer #$userId'};
+      } else {
+        debugPrint('Failed to fetch user data for $userId with status code: ${response.statusCode}');
+        
+        // Cache the failed attempt with error info
+        Map<String, dynamic> userInfo = {
+          'name': 'Customer #$userId',
+          'error': 'API Error: ${response.statusCode}',
+          'timestamp': DateTime.now().millisecondsSinceEpoch
+        };
+        
+        _userCache[userId] = userInfo;
+        return userInfo;
+      }
+    } catch (e) {
+      debugPrint('Error fetching user data for $userId: $e');
+      
+      // Cache the failed attempt with error info
+      Map<String, dynamic> userInfo = {
+        'name': 'Customer #$userId',
+        'error': e.toString(),
+        'timestamp': DateTime.now().millisecondsSinceEpoch
+      };
+      
+      _userCache[userId] = userInfo;
+      return userInfo;
+    }
+  }
+  
   void _handleUnauthorized() {
     // Delete token because it's no longer valid
     _secureStorage.delete(key: 'auth_token');
@@ -103,124 +194,287 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       ),
     );
   }
-
-  // Fetch order details from API
+  
   Future<void> fetchOrderDetails() async {
     setState(() {
       isLoading = true;
       errorMessage = '';
     });
-
+    
     try {
-      final headers = await _getAuthHeaders();
+      debugPrint('Fetching order details for: ${widget.orderId}');
       
-      final response = await http.get(
-        Uri.parse('${AppConfig.baseApiUrl}/v1/orders/${widget.orderId}'),
-        headers: headers,
-      ).timeout(AppConfig.apiTimeout);
+      // Use the OrderService to fetch order details
+      final responseData = await _orderService.getOrderDetails(widget.orderId);
       
-      if (response.statusCode == 401) {
-        _handleUnauthorized();
-        return;
-      } else if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        
-        // Extract order data based on API response structure
-        Map<String, dynamic> orderData;
-        if (data['order'] != null) {
-          orderData = data['order'];
-        } else if (data['data'] != null) {
-          orderData = data['data'];
-        } else if (data is Map<String, dynamic> && data.containsKey('id')) {
-          orderData = data;
-        } else {
-          throw Exception('Unexpected API response structure');
-        }
-        
-        // Extract customer data
-        Map<String, dynamic> customer = {};
-        if (orderData['user'] != null) {
-          customer = orderData['user'];
-        } else if (orderData['customer'] != null) {
-          customer = orderData['customer'];
-        } else {
-          // If no detailed customer info, try to fetch it
-          customer = await _fetchCustomerDetails(orderData['user_id']?.toString() ?? '');
-        }
-        
-        // Extract order items
-        List<Map<String, dynamic>> items = [];
-        if (orderData['items'] != null && orderData['items'] is List) {
-          for (var item in orderData['items']) {
-            items.add(_normalizeOrderItem(item));
-          }
-        } else if (orderData['order_items'] != null && orderData['order_items'] is List) {
-          for (var item in orderData['order_items']) {
-            items.add(_normalizeOrderItem(item));
-          }
-        }
-        
-        // Extract shipping data
-        Map<String, dynamic> shipping = {};
-        if (orderData['shipping'] != null) {
-          shipping = orderData['shipping'];
-        } else if (orderData['shipping_address'] != null) {
-          shipping = {
-            'address': orderData['shipping_address'],
-            'method': orderData['shipping_method'] ?? 'Standard Delivery',
-            'tracking_number': orderData['tracking_number'],
-            'tracking_url': orderData['tracking_url'],
-            'courier': orderData['courier'] ?? 'Default Courier',
-          };
-        }
-        
-        // Extract payment data
-        Map<String, dynamic> payment = {};
-        if (orderData['payment'] != null) {
-          payment = orderData['payment'];
-        } else {
-          payment = {
-            'method': orderData['payment_method'] ?? 'Unknown',
-            'status': orderData['payment_status'] ?? 'pending',
-            'transaction_id': orderData['transaction_id'] ?? 'Unknown',
-            'amount': orderData['total_amount'] ?? orderData['total'] ?? 0,
-            'currency': orderData['currency'] ?? 'IDR',
-            'payment_date': orderData['payment_date'] ?? orderData['created_at'],
-          };
-        }
-        
-        // Normalize status
-        String status = orderData['status']?.toString().toLowerCase() ?? 'pending';
-        
-        // Validate status - if invalid, default to 'pending'
-        if (!statusOptions.contains(status)) {
-          debugPrint('Invalid status detected: $status. Using default: pending');
-          status = 'pending';
-        }
-        
-        // Update state with data
+      // Print the entire response for debugging
+      debugPrint('Response status code: ${responseData['status'] ?? 'No status'}');
+      debugPrint('Response body (first 100 chars): ${responseData.toString().substring(0, min(responseData.toString().length, 100))}...');
+      
+      // Extract order data based on the OrderController.php structure
+      // The controller returns data in the format: {'order': {...}}
+      final orderData = responseData['order'];
+      
+      if (orderData == null) {
         setState(() {
-          orderDetails = orderData;
-          orderItems = items;
-          customerData = customer;
-          shippingData = shipping;
-          paymentData = payment;
-          currentStatus = status;
+          errorMessage = 'Invalid order data format received from server';
           isLoading = false;
         });
+        return;
+      }
+      
+      // Debug the raw data
+      debugPrint('Raw order data: ${orderData.toString().substring(0, min(orderData.toString().length, 200))}...');
+      
+      // Parse order items - ensure we properly handle the items array
+      List<Map<String, dynamic>> parsedItems = [];
+      
+      // Check if there are items in different possible formats
+      if (orderData.containsKey('orderItems') && orderData['orderItems'] is List) {
+        debugPrint('Found orderItems array with ${(orderData['orderItems'] as List).length} items');
+        
+        for (var item in orderData['orderItems']) {
+          // Extract product details - handle potential null values
+          final product = item['product'] ?? {};
+          final productName = product['name'] ?? 'Product #${item['product_id'] ?? ''}';
+          
+          // Calculate subtotal if not provided
+          double price = double.tryParse(item['price']?.toString() ?? '0') ?? 0;
+          int quantity = int.tryParse(item['quantity']?.toString() ?? '0') ?? 0;
+          double subtotal = double.tryParse(item['subtotal']?.toString() ?? '0') ?? (price * quantity);
+          
+          parsedItems.add({
+            'id': item['id']?.toString() ?? '',
+            'order_id': item['order_id']?.toString() ?? widget.orderId,
+            'product_id': item['product_id']?.toString() ?? product['id']?.toString() ?? '',
+            'product_name': productName,
+            'quantity': quantity,
+            'price': price,
+            'subtotal': subtotal,
+            'created_at': item['created_at'] ?? '',
+            'updated_at': item['updated_at'] ?? '',
+          });
+        }
+      } else if (orderData.containsKey('items') && orderData['items'] is List) {
+        debugPrint('Found items array with ${(orderData['items'] as List).length} items');
+        
+        // Alternative path if items are stored in 'items' key instead of 'orderItems'
+        for (var item in orderData['items']) {
+          final product = item['product'] ?? {};
+          final productName = product['name'] ?? item['product_name'] ?? 'Product #${item['product_id'] ?? ''}';
+          
+          double price = double.tryParse(item['price']?.toString() ?? '0') ?? 0;
+          int quantity = int.tryParse(item['quantity']?.toString() ?? '0') ?? 0;
+          double subtotal = double.tryParse(item['subtotal']?.toString() ?? '0') ?? (price * quantity);
+          
+          parsedItems.add({
+            'id': item['id']?.toString() ?? '',
+            'order_id': item['order_id']?.toString() ?? widget.orderId,
+            'product_id': item['product_id']?.toString() ?? product['id']?.toString() ?? '',
+            'product_name': productName,
+            'quantity': quantity,
+            'price': price,
+            'subtotal': subtotal,
+            'created_at': item['created_at'] ?? '',
+            'updated_at': item['updated_at'] ?? '',
+          });
+        }
       } else {
-        setState(() {
-          errorMessage = 'Failed to load order details: ${response.statusCode}';
-          isLoading = false;
+        // Handle case where the items might be in a nested array or differently named
+        debugPrint('No items array found in standard locations. Looking for alternatives...');
+        
+        // Try to find any key that might contain our items
+        orderData.forEach((key, value) {
+          if (value is List && key.toLowerCase().contains('item')) {
+            debugPrint('Found potential items in key: $key');
+            for (var item in value) {
+              if (item is Map<String, dynamic>) {
+                double price = double.tryParse(item['price']?.toString() ?? '0') ?? 0;
+                int quantity = int.tryParse(item['quantity']?.toString() ?? '0') ?? 0;
+                double subtotal = double.tryParse(item['subtotal']?.toString() ?? '0') ?? (price * quantity);
+                
+                String productName = 'Unknown Product';
+                if (item.containsKey('product_name')) {
+                  productName = item['product_name'] ?? 'Unknown Product';
+                } else if (item.containsKey('product') && item['product'] is Map) {
+                  productName = item['product']['name'] ?? 'Unknown Product';
+                }
+                
+                parsedItems.add({
+                  'id': item['id']?.toString() ?? '',
+                  'product_id': item['product_id']?.toString() ?? '',
+                  'product_name': productName,
+                  'quantity': quantity,
+                  'price': price,
+                  'subtotal': subtotal,
+                });
+              }
+            }
+          }
         });
       }
+      
+      // If we still don't have items, check if there's a products array
+      if (parsedItems.isEmpty && orderData.containsKey('products') && orderData['products'] is List) {
+        debugPrint('Trying products array as fallback');
+        for (var product in orderData['products']) {
+          if (product is Map<String, dynamic>) {
+            double price = double.tryParse(product['price']?.toString() ?? '0') ?? 0;
+            int quantity = product['pivot']?['quantity'] ?? 1;
+            double subtotal = price * quantity;
+            
+            parsedItems.add({
+              'id': product['id']?.toString() ?? '',
+              'product_id': product['id']?.toString() ?? '',
+              'product_name': product['name'] ?? 'Unknown Product',
+              'quantity': quantity,
+              'price': price,
+              'subtotal': subtotal,
+            });
+          }
+        }
+      }
+      
+      // Extract shipping address - handle multiple possible structures
+      Map<String, dynamic> addressData = {};
+      if (orderData.containsKey('address') && orderData['address'] is Map) {
+        addressData = orderData['address'];
+      } else if (orderData.containsKey('shipping_address') && orderData['shipping_address'] is Map) {
+        addressData = orderData['shipping_address'];
+      } else if (orderData.containsKey('shippingAddress') && orderData['shippingAddress'] is Map) {
+        addressData = orderData['shippingAddress'];
+      }
+      
+      // Debug the address data
+      debugPrint('Found address data: ${addressData.toString().substring(0, min(addressData.toString().length, 100))}...');
+      
+      // Parse shipping address with fallbacks
+      Map<String, dynamic> parsedAddress = {
+        'id': addressData['id']?.toString() ?? '',
+        'user_id': addressData['user_id']?.toString() ?? orderData['user_id']?.toString() ?? '',
+        'street_address': addressData['street'] ?? addressData['address_line1'] ?? addressData['street_address'] ?? '',
+        'city': addressData['city'] ?? '',
+        'state': addressData['province'] ?? addressData['state'] ?? '',
+        'postal_code': addressData['zip_code'] ?? addressData['postal_code'] ?? '',
+        'country': addressData['country'] ?? 'Indonesia',
+        'is_default': addressData['is_default'] ?? false,
+        'created_at': addressData['created_at'] ?? '',
+        'updated_at': addressData['updated_at'] ?? '',
+      };
+      
+      // Extract payment information
+      Map<String, dynamic> paymentData = {};
+      if (orderData.containsKey('payment') && orderData['payment'] is Map) {
+        paymentData = orderData['payment'];
+      }
+      
+      Map<String, dynamic> parsedPayment = {
+        'id': paymentData['id']?.toString() ?? '',
+        'amount': double.tryParse(paymentData['amount']?.toString() ?? orderData['total_amount']?.toString() ?? '0') ?? 0,
+        'status': paymentData['status'] ?? orderData['payment_status'] ?? 'pending',
+        'payment_method': paymentData['payment_method'] ?? orderData['payment_method'] ?? 'Not specified',
+        'created_at': paymentData['created_at'] ?? '',
+      };
+      
+      // Extract user/customer info from the order data
+      Map<String, dynamic> userData = {};
+      String userId = '';
+      
+      // First check if user ID is available to fetch complete user data
+      if (orderData.containsKey('user_id') && orderData['user_id'] != null) {
+        userId = orderData['user_id'].toString();
+      }
+      
+      // Check if user data is embedded in the order data
+      if (orderData.containsKey('user') && orderData['user'] is Map) {
+        debugPrint('Found user data in user key');
+        userData = orderData['user'];
+        if (!userId.isNotEmpty && userData['id'] != null) {
+          userId = userData['id'].toString();
+        }
+      } else if (orderData.containsKey('customer') && orderData['customer'] is Map) {
+        debugPrint('Found user data in customer key');
+        userData = orderData['customer'];
+        if (!userId.isNotEmpty && userData['id'] != null) {
+          userId = userData['id'].toString();
+        }
+      }
+      
+      // Initialize parsed user with data from response
+      Map<String, dynamic> parsedUser = {
+        'id': userId,
+        'name': userData['name'] ?? userData['fullname'] ?? orderData['customer_name'] ?? 'Unknown Customer',
+        'email': userData['email'] ?? orderData['customer_email'] ?? '',
+        'phone': userData['phone'] ?? userData['phone_number'] ?? orderData['customer_phone'] ?? '',
+      };
+      
+      // Fetch additional user data if we have a user ID and incomplete information
+      if (userId.isNotEmpty) {
+        debugPrint('User ID found: $userId, fetching complete user data');
+        try {
+          final userInfo = await _getUserById(userId);
+          
+          // Update with more complete information if available
+          if (userInfo.containsKey('name') && userInfo['name'] != 'Customer #$userId') {
+            parsedUser['name'] = userInfo['name'];
+          }
+          
+          if (userInfo.containsKey('email') && userInfo['email'].isNotEmpty) {
+            parsedUser['email'] = userInfo['email'];
+          }
+          
+          if (userInfo.containsKey('phone') && userInfo['phone'].isNotEmpty) {
+            parsedUser['phone'] = userInfo['phone'];
+          }
+          
+          debugPrint('Updated user data: ${parsedUser.toString()}');
+        } catch (e) {
+          debugPrint('Error fetching additional user data: $e');
+          // Continue with existing data
+        }
+      } else {
+        debugPrint('No user ID found, using order data for customer info');
+      }
+      
+      setState(() {
+        orderDetails = {
+          'id': orderData['id']?.toString() ?? widget.orderId,
+          'user_id': userId,
+          'address_id': orderData['address_id']?.toString() ?? orderData['shipping_address_id']?.toString() ?? '',
+          'total_amount': double.tryParse(orderData['total']?.toString() ?? orderData['total_amount']?.toString() ?? '0') ?? 0,
+          'status': orderData['status']?.toString()?.toLowerCase() ?? 'pending',
+          'created_at': orderData['created_at'] ?? '',
+          'updated_at': orderData['updated_at'] ?? '',
+          'payment_status': paymentData['status'] ?? orderData['payment_status'] ?? 'pending',
+          'payment_method': orderData['payment_method'] ?? paymentData['payment_method'] ?? 'Not specified',
+          'notes': orderData['notes'] ?? orderData['order_notes'] ?? '',
+        };
+        
+        orderItems = parsedItems;
+        shippingAddress = parsedAddress;
+        paymentInfo = parsedPayment;
+        customerInfo = parsedUser;
+        isLoading = false;
+        
+        // Debug output to help diagnose issues
+        debugPrint('Parsed ${orderItems.length} order items');
+        debugPrint('Customer name: ${customerInfo['name']}');
+        debugPrint('Shipping address street: ${shippingAddress['street_address']}');
+      });
     } catch (e) {
       debugPrint('Error fetching order details: $e');
+      
+      // Handle specific errors
+      if (e.toString().contains('Unauthorized')) {
+        _handleUnauthorized();
+        return;
+      }
+      
       setState(() {
         if (e.toString().contains('SocketException') || 
             e.toString().contains('Connection refused') ||
             e.toString().contains('Connection timed out')) {
-          errorMessage = 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+          errorMessage = 'Cannot connect to server. Please check your internet connection.';
         } else {
           errorMessage = 'Error: ${e.toString()}';
         }
@@ -229,183 +483,63 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     }
   }
   
-  // Normalize order item structure
-  Map<String, dynamic> _normalizeOrderItem(dynamic item) {
-    // Get product data
-    String productName = '';
-    String productImage = '';
-    String productSku = '';
-    
-    if (item['product'] != null) {
-      final product = item['product'];
-      productName = product['name'] ?? product['title'] ?? 'Unknown Product';
-      productImage = product['image'] ?? product['image_url'] ?? '';
-      productSku = product['sku'] ?? product['code'] ?? '';
-    } else {
-      productName = item['name'] ?? item['product_name'] ?? 'Unknown Product';
-      productImage = item['image'] ?? item['image_url'] ?? '';
-      productSku = item['sku'] ?? item['product_sku'] ?? '';
-    }
-    
-    // Get price and quantity
-    double price = 0.0;
-    if (item['price'] != null) {
-      price = double.tryParse(item['price'].toString()) ?? 0.0;
-    } else if (item['unit_price'] != null) {
-      price = double.tryParse(item['unit_price'].toString()) ?? 0.0;
-    }
-    
-    int quantity = item['quantity'] != null ? int.tryParse(item['quantity'].toString()) ?? 1 : 
-      (item['qty'] != null ? int.tryParse(item['qty'].toString()) ?? 1 : 1);
-    
-    double subtotal = price * quantity;
-    
-    // Get variations/options
-    List<Map<String, dynamic>> variations = [];
-    if (item['variations'] != null && item['variations'] is List) {
-      for (var variation in item['variations']) {
-        variations.add({
-          'name': variation['name'] ?? variation['option_name'] ?? 'Option',
-          'value': variation['value'] ?? variation['option_value'] ?? 'Value',
-        });
-      }
-    } else if (item['options'] != null && item['options'] is Map) {
-      item['options'].forEach((key, value) {
-        variations.add({
-          'name': key,
-          'value': value.toString(),
-        });
-      });
-    }
-    
-    return {
-      'id': item['id']?.toString() ?? '',
-      'product_id': item['product_id']?.toString() ?? '',
-      'name': productName,
-      'image': productImage,
-      'sku': productSku,
-      'price': price,
-      'quantity': quantity,
-      'subtotal': subtotal,
-      'variations': variations,
-      'notes': item['notes'] ?? item['customer_notes'] ?? '',
-    };
-  }
-  
-  // Fetch customer details if not provided in order
-  Future<Map<String, dynamic>> _fetchCustomerDetails(String userId) async {
-    if (userId.isEmpty) {
-      return {'name': 'Unknown Customer'};
-    }
-    
-    try {
-      final headers = await _getAuthHeaders();
-      
-      final response = await http.get(
-        Uri.parse('${AppConfig.baseApiUrl}/v1/users/$userId'),
-        headers: headers,
-      ).timeout(AppConfig.apiTimeout);
-      
-      if (response.statusCode == 200) {
-        final userData = json.decode(response.body);
-        
-        // Extract user data based on API response structure
-        Map<String, dynamic> user = {};
-        if (userData['data'] != null) {
-          user = userData['data'];
-        } else if (userData is Map<String, dynamic> && userData.containsKey('name')) {
-          user = userData;
-        } else {
-          return {'name': 'Customer #$userId'};
-        }
-        
-        return user;
-      } else {
-        return {'name': 'Customer #$userId'};
-      }
-    } catch (e) {
-      debugPrint('Error fetching customer details: $e');
-      return {'name': 'Customer #$userId'};
-    }
-  }
-  
-  // Update order status
   Future<void> updateOrderStatus(String newStatus) async {
-    if (newStatus == currentStatus) {
-      return; // No change needed
-    }
+    // Validate the newStatus
+    final String apiStatus = newStatus.toLowerCase();
     
-    // Validate the new status
-    if (!statusOptions.contains(newStatus)) {
-      setState(() {
-        statusUpdateError = 'Invalid status: $newStatus';
-      });
+    // Check if status is valid
+    if (!statusOptions.contains(apiStatus)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Invalid status: $newStatus'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
     
-    setState(() {
-      isUpdating = true;
-      statusUpdateError = '';
-    });
-    
     try {
-      final headers = await _getAuthHeaders();
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        },
+      );
       
-      final response = await http.put(
-        Uri.parse('${AppConfig.baseApiUrl}/v1/orders/${widget.orderId}/status'),
-        headers: headers,
-        body: json.encode({'status': newStatus}),
-      ).timeout(AppConfig.apiTimeout);
+      // Use OrderService to update status
+      final result = await _orderService.updateOrderStatus(widget.orderId, apiStatus);
       
-      if (response.statusCode == 401) {
+      // Pop loading dialog
+      Navigator.pop(context);
+      
+      // Update the local order status
+      setState(() {
+        orderDetails['status'] = apiStatus;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Order status updated to ${_formatStatus(newStatus)}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      // Pop loading dialog if still showing
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      
+      debugPrint('Exception when updating order status: $e');
+      
+      // Handle unauthorized
+      if (e.toString().contains('Unauthorized')) {
         _handleUnauthorized();
         return;
-      } else if (response.statusCode == 200 || response.statusCode == 204) {
-        // Success - update local state
-        setState(() {
-          currentStatus = newStatus;
-          isUpdating = false;
-        });
-        
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Status pesanan berhasil diubah menjadi ${_formatStatus(newStatus)}'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        // Try to parse error message
-        String errorMsg = 'Failed to update order status';
-        
-        try {
-          final errorData = json.decode(response.body);
-          if (errorData['message'] != null) {
-            errorMsg = errorData['message'];
-          } else if (errorData['error'] != null) {
-            errorMsg = errorData['error'];
-          }
-        } catch (e) {
-          errorMsg = 'Failed to update order status: ${response.statusCode}';
-        }
-        
-        setState(() {
-          statusUpdateError = errorMsg;
-          isUpdating = false;
-        });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMsg),
-            backgroundColor: Colors.red,
-          ),
-        );
       }
-    } catch (e) {
-      setState(() {
-        statusUpdateError = e.toString();
-        isUpdating = false;
-      });
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -418,11 +552,12 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   
   // Format status for display
   String _formatStatus(String status) {
+    // Change first character to uppercase, rest to lowercase
     if (status.isEmpty) return '';
     return status[0].toUpperCase() + status.substring(1).toLowerCase();
   }
   
-  // Get color for status
+  // Get status color based on status
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -440,1072 +575,921 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     }
   }
   
-  // Format date with fallback
-  String _formatDate(dynamic dateValue) {
-    if (dateValue == null) return 'Unknown date';
-    
-    DateTime? date;
-    if (dateValue is DateTime) {
-      date = dateValue;
-    } else if (dateValue is String) {
-      date = DateTime.tryParse(dateValue);
-    }
-    
-    if (date == null) return 'Invalid date';
-    
-    return dateFormat.format(date);
+  // Helper function to get minimum of two integers
+  int min(int a, int b) {
+    return a < b ? a : b;
   }
   
-  // Calculate order totals
-  Map<String, dynamic> _calculateOrderTotals() {
-    double subtotal = 0.0;
-    for (var item in orderItems) {
-      subtotal += item['subtotal'];
-    }
-    
-    double shipping = 0.0;
-    if (orderDetails['shipping_cost'] != null) {
-      shipping = double.tryParse(orderDetails['shipping_cost'].toString()) ?? 0.0;
-    } else if (shippingData['cost'] != null) {
-      shipping = double.tryParse(shippingData['cost'].toString()) ?? 0.0;
-    }
-    
-    double tax = 0.0;
-    if (orderDetails['tax'] != null) {
-      tax = double.tryParse(orderDetails['tax'].toString()) ?? 0.0;
-    }
-    
-    double discount = 0.0;
-    if (orderDetails['discount'] != null) {
-      discount = double.tryParse(orderDetails['discount'].toString()) ?? 0.0;
-    }
-    
-    double total = 0.0;
-    if (orderDetails['total_amount'] != null) {
-      total = double.tryParse(orderDetails['total_amount'].toString()) ?? 0.0;
-    } else if (orderDetails['total'] != null) {
-      total = double.tryParse(orderDetails['total'].toString()) ?? 0.0;
-    } else {
-      total = subtotal + shipping + tax - discount;
-    }
-    
-    return {
-      'subtotal': subtotal,
-      'shipping': shipping,
-      'tax': tax,
-      'discount': discount,
-      'total': total,
-    };
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Order #${widget.orderId}'),
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 2,
+      ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : errorMessage.isNotEmpty
+              ? _buildErrorView()
+              : _buildOrderDetailsView(),
+    );
   }
   
-  // Generate and share order invoice PDF
-  Future<void> generateInvoicePdf() async {
-    setState(() {
-      isLoadingPdf = true;
-    });
-    
-    // Request storage permission for Android
-    if (Platform.isAndroid) {
-      var status = await Permission.storage.status;
-      if (!status.isGranted) {
-        status = await Permission.storage.request();
-        if (!status.isGranted) {
-          setState(() {
-            isLoadingPdf = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Storage permission is required to save invoice'),
-              backgroundColor: Colors.red,
+  Widget _buildErrorView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Text(
+              errorMessage,
+              style: const TextStyle(color: Colors.red),
+              textAlign: TextAlign.center,
             ),
-          );
-          return;
-        }
-      }
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.refresh),
+            label: const Text('Try Again'),
+            onPressed: fetchOrderDetails,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildOrderDetailsView() {
+    // Format order date
+    DateTime? orderDate;
+    try {
+      orderDate = DateTime.parse(orderDetails['created_at']);
+    } catch (e) {
+      orderDate = null;
     }
     
-    try {
-      final pdf = pw.Document();
-      final totals = _calculateOrderTotals();
-      
-      pdf.addPage(
-        pw.MultiPage(
-          pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(32),
-          header: (pw.Context context) {
-            return pw.Header(
-              level: 0,
-              child: pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text(
-                    'INVOICE',
-                    style: pw.TextStyle(
-                      fontSize: 28,
-                      fontWeight: pw.FontWeight.bold,
+    return RefreshIndicator(
+      onRefresh: fetchOrderDetails,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Order summary card
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Order #${widget.orderId}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        _buildStatusBadge(orderDetails['status']),
+                      ],
                     ),
-                  ),
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      pw.Text(
-                        'Invoice #${widget.orderId}',
-                        style: pw.TextStyle(
-                          fontSize: 14,
-                          fontWeight: pw.FontWeight.bold,
+                    const Divider(height: 24),
+                    if (orderDate != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Order Date: ${dateFormat.format(orderDate)}',
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                          ],
                         ),
                       ),
-                      pw.Text(
-                        'Date: ${_formatDate(orderDetails['created_at'])}',
-                        style: const pw.TextStyle(
-                          fontSize: 12,
+                    Row(
+                      children: [
+                        const Icon(Icons.payments_outlined, size: 18, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Payment: ${_formatStatus(orderDetails['payment_status'])} (${orderDetails['payment_method']})',
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Total Amount:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          currencyFormat.format(orderDetails['total_amount']),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (orderDetails['notes']?.isNotEmpty == true) ...[
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Notes:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        orderDetails['notes'],
+                        style: const TextStyle(
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey,
                         ),
                       ),
                     ],
-                  ),
-                ],
-              ),
-            );
-          },
-          build: (pw.Context context) {
-            return [
-              pw.SizedBox(height: 20),
-              
-              // Customer & Company Info
-              pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Expanded(
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          'Bill To:',
-                          style: pw.TextStyle(
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                        pw.Text(customerData['name'] ?? 'Unknown Customer'),
-                        pw.Text(customerData['email'] ?? 'No email provided'),
-                        pw.Text(customerData['phone'] ?? 'No phone provided'),
-                      ],
-                    ),
-                  ),
-                  pw.Expanded(
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.end,
-                      children: [
-                        pw.Text(
-                          'Company Name',
-                          style: pw.TextStyle(
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                        pw.Text('company@example.com'),
-                        pw.Text('+1 234 567 890'),
-                        pw.Text('123 Street Name, City'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              
-              pw.SizedBox(height: 30),
-              
-              // Status
-              pw.Container(
-                padding: const pw.EdgeInsets.all(10),
-                decoration: pw.BoxDecoration(
-                  color: PdfColors.grey200,
-                  borderRadius: pw.BorderRadius.circular(5),
+                  ],
                 ),
-                child: pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Customer information
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    pw.Text(
-                      'Order Status:',
-                      style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold,
+                    const Text(
+                      'Customer Information',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
                     ),
-                    pw.Text(
-                      _formatStatus(currentStatus),
-                      style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold,
+                    const Divider(height: 24),
+                    Text(
+                      'Name: ${customerInfo['name'] ?? 'Unknown Customer'}',
+                      style: const TextStyle(fontSize: 15),
+                    ),
+                    if (customerInfo['email']?.isNotEmpty == true)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Email: ${customerInfo['email']}',
+                          style: const TextStyle(fontSize: 15),
+                        ),
                       ),
+                    if (customerInfo['phone']?.isNotEmpty == true)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Phone: ${customerInfo['phone']}',
+                          style: const TextStyle(fontSize: 15),
+                        ),
+                      ),
+                    if (orderDetails['user_id']?.isNotEmpty == true)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Customer ID: ${orderDetails['user_id']}',
+                          style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Shipping Address
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Shipping Address',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const Divider(height: 24),
+                    // Show shipping address details even if some fields are empty
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (shippingAddress['street_address']?.isNotEmpty == true) 
+                          Text(
+                            '${shippingAddress['street_address']}',
+                            style: const TextStyle(fontSize: 15),
+                          )
+                        else
+                          const Text(
+                            'Address: Not provided',
+                            style: TextStyle(fontSize: 15),
+                          ),
+                        const SizedBox(height: 4),
+                        if (shippingAddress['city']?.isNotEmpty == true || 
+                            shippingAddress['state']?.isNotEmpty == true || 
+                            shippingAddress['postal_code']?.isNotEmpty == true)
+                          Text(
+                            '${shippingAddress['city'] ?? ''}, ${shippingAddress['state'] ?? ''} ${shippingAddress['postal_code'] ?? ''}',
+                            style: const TextStyle(fontSize: 15),
+                          ),
+                        const SizedBox(height: 4),
+                        Text(
+                          shippingAddress['country'] ?? 'Indonesia',
+                          style: const TextStyle(fontSize: 15),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              
-              pw.SizedBox(height: 20),
-              
-              // Items Table
-              pw.Table(
-                border: pw.TableBorder.all(
-                  color: PdfColors.grey300,
-                  width: 1,
-                ),
-                columnWidths: {
-                  0: const pw.FlexColumnWidth(1),
-                  1: const pw.FlexColumnWidth(4),
-                  2: const pw.FlexColumnWidth(1),
-                  3: const pw.FlexColumnWidth(2),
-                  4: const pw.FlexColumnWidth(2),
-                },
-                children: [
-                  // Table Header
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(
-                      color: PdfColors.grey200,
+            ),
+            const SizedBox(height: 16),
+            
+            // Order items
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Order Items',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          '${orderItems.length} items',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
+                    const Divider(height: 24),
+                    if (orderItems.isEmpty)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Text(
+                            'No items found for this order',
+                            style: TextStyle(fontStyle: FontStyle.italic),
+                          ),
+                        ),
+                      )
+                    else
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: orderItems.length,
+                        separatorBuilder: (context, index) => const Divider(height: 24),
+                        itemBuilder: (context, index) {
+                          final item = orderItems[index];
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Item image or placeholder
+                              Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  color: Colors.grey[200],
+                                ),
+                                child: Center(
+                                  child: Icon(
+                                    Icons.inventory_2,
+                                    color: Colors.grey[400],
+                                    size: 24,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Item details
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item['product_name'] ?? 'Unknown Product',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${item['quantity']} x ${currencyFormat.format(item['price'])}',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Item subtotal
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    currencyFormat.format(item['subtotal']),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'ID: ${item['product_id']}',
+                                    style: TextStyle(
+                                      color: Colors.grey[500],
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      // Subtotal and other price details
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Total Amount'),
+                          Text(
+                            currencyFormat.format(orderDetails['total_amount']),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Actions section
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Order Actions',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const Divider(height: 24),
+                    
+                    // Update status section
+                    const Text(
+                      'Update Status:',
+                      style: TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (String status in statusOptions)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ElevatedButton(
+                                onPressed: status == orderDetails['status']
+                                    ? null
+                                    : () => updateOrderStatus(status),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _getStatusColor(status),
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor: status == orderDetails['status']
+                                      ? _getStatusColor(status)
+                                      : null,
+                                  disabledForegroundColor: status == orderDetails['status']
+                                      ? Colors.white.withOpacity(0.8)
+                                      : null,
+                                ),
+                                child: Text(_formatStatus(status)),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    
+                    // Other actions
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.receipt),
+                          label: const Text('Generate Invoice'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue[700],
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: () => _generateInvoice(),
+                        ),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.share),
+                          label: const Text('Share Order'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green[700],
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: _shareOrder,
+                        ),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.email),
+                          label: const Text('Contact Customer'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange[700],
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: customerInfo['email']?.isNotEmpty == true
+                              ? () => _contactCustomer()
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  // Status badge widget
+  Widget _buildStatusBadge(String status) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: _getStatusColor(status),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        _formatStatus(status),
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+  
+  // Generate invoice PDF
+  Future<void> _generateInvoice() async {
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Generating invoice...'),
+              ],
+            ),
+          );
+        },
+      );
+      
+      // Create a PDF document
+      final pdf = pw.Document();
+      
+      // Format order date
+      String formattedDate = 'N/A';
+      try {
+        final orderDate = DateTime.parse(orderDetails['created_at']);
+        formattedDate = dateFormat.format(orderDate);
+      } catch (e) {
+        debugPrint('Error parsing date: $e');
+      }
+      
+      // Add page to PDF
+      pdf.addPage(
+        pw.Page(
+          build: (pw.Context context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // Header
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'INVOICE',
+                          style: pw.TextStyle(
+                            fontSize: 24,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.SizedBox(height: 5),
+                        pw.Text('Order #${widget.orderId}'),
+                        pw.Text('Date: $formattedDate'),
+                      ],
+                    ),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text(
+                          'Your Company Name',
+                          style: pw.TextStyle(
+                            fontSize: 16,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.Text('your@email.com'),
+                        pw.Text('Company Address'),
+                        pw.Text('Phone: +123456789'),
+                      ],
+                    ),
+                  ],
+                ),
+                
+                pw.SizedBox(height: 30),
+                
+                // Customer Information
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Expanded(
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            'Bill To:',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                          ),
+                          pw.Text(customerInfo['name'] ?? 'Unknown Customer'),
+                          if (customerInfo['email']?.isNotEmpty == true)
+                            pw.Text(customerInfo['email']),
+                          if (customerInfo['phone']?.isNotEmpty == true)
+                            pw.Text(customerInfo['phone']),
+                        ],
+                      ),
+                    ),
+                    pw.Expanded(
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            'Ship To:',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                          ),
+                          pw.Text(shippingAddress['street_address'] ?? 'No address provided'),
+                          pw.Text('${shippingAddress['city'] ?? ''}, ${shippingAddress['state'] ?? ''} ${shippingAddress['postal_code'] ?? ''}'),
+                          pw.Text(shippingAddress['country'] ?? 'Indonesia'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                
+                pw.SizedBox(height: 20),
+                
+                // Invoice Details
+                pw.Text(
+                  'Order Details',
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 10),
+                
+                // Table Header
+                pw.Container(
+                  color: PdfColors.grey300,
+                  padding: const pw.EdgeInsets.all(5),
+                  child: pw.Row(
                     children: [
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
+                      pw.Expanded(
+                        flex: 5,
                         child: pw.Text(
-                          'No.',
-                          style: pw.TextStyle(
-                            fontWeight: pw.FontWeight.bold,
-                          ),
+                          'Product',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                         ),
                       ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
+                      pw.Expanded(
+                        flex: 2,
                         child: pw.Text(
-                          'Description',
-                          style: pw.TextStyle(
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Qty',
-                          style: pw.TextStyle(
-                            fontWeight: pw.FontWeight.bold,
-                          ),
+                          'Quantity',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                           textAlign: pw.TextAlign.center,
                         ),
                       ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
+                      pw.Expanded(
+                        flex: 2,
                         child: pw.Text(
                           'Price',
-                          style: pw.TextStyle(
-                            fontWeight: pw.FontWeight.bold,
-                          ),
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                           textAlign: pw.TextAlign.right,
                         ),
                       ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
+                      pw.Expanded(
+                        flex: 2,
                         child: pw.Text(
-                          'Subtotal',
-                          style: pw.TextStyle(
-                            fontWeight: pw.FontWeight.bold,
-                          ),
+                          'Amount',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                           textAlign: pw.TextAlign.right,
                         ),
                       ),
                     ],
                   ),
-                  
-                  // Table Rows for Items
-                  ...orderItems.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final item = entry.value;
-                    
-                    String itemDescription = item['name'];
-                    if ((item['variations'] as List).isNotEmpty) {
-                      List<String> variationStrings = [];
-                      for (var variation in item['variations']) {
-                        variationStrings.add('${variation['name']}: ${variation['value']}');
-                      }
-                      itemDescription += '\n${variationStrings.join(', ')}';
-                    }
-                    
-                    if (item['sku'].isNotEmpty) {
-                      itemDescription += '\nSKU: ${item['sku']}';
-                    }
-                    
-                    return pw.TableRow(
+                ),
+                
+                // Table Content
+                ...orderItems.map((item) {
+                  return pw.Container(
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(
+                        bottom: pw.BorderSide(color: PdfColors.grey300),
+                      ),
+                    ),
+                    padding: const pw.EdgeInsets.symmetric(vertical: 8),
+                    child: pw.Row(
                       children: [
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text('${index + 1}'),
+                        pw.Expanded(
+                          flex: 5,
+                          child: pw.Text(item['product_name'] ?? 'Unknown Product'),
                         ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(itemDescription),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
+                        pw.Expanded(
+                          flex: 2,
                           child: pw.Text(
                             '${item['quantity']}',
                             textAlign: pw.TextAlign.center,
                           ),
                         ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
+                        pw.Expanded(
+                          flex: 2,
                           child: pw.Text(
-                            'Rp ${NumberFormat('#,###').format(item['price'])}',
+                            'Rp ${item['price']}',
                             textAlign: pw.TextAlign.right,
                           ),
                         ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
+                        pw.Expanded(
+                          flex: 2,
                           child: pw.Text(
-                            'Rp ${NumberFormat('#,###').format(item['subtotal'])}',
+                            'Rp ${item['subtotal']}',
                             textAlign: pw.TextAlign.right,
                           ),
                         ),
                       ],
-                    );
-                  }).toList(),
-                ],
-              ),
-              
-              pw.SizedBox(height: 20),
-              
-              // Totals
-              pw.Container(
-                alignment: pw.Alignment.centerRight,
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    ),
+                  );
+                }).toList(),
+                
+                pw.SizedBox(height: 10),
+                
+                // Total
+                pw.Row(
                   children: [
-                    pw.Row(
-                      mainAxisSize: pw.MainAxisSize.min,
-                      children: [
-                        pw.Container(
-                          width: 150,
-                          child: pw.Text('Subtotal'),
-                        ),
-                        pw.Container(
-                          width: 100,
-                          child: pw.Text(
-                            'Rp ${NumberFormat('#,###').format(totals['subtotal'])}',
-                            textAlign: pw.TextAlign.right,
-                          ),
-                        ),
-                      ],
-                    ),
-                    pw.SizedBox(height: 5),
-                    pw.Row(
-                      mainAxisSize: pw.MainAxisSize.min,
-                      children: [
-                        pw.Container(
-                          width: 150,
-                          child: pw.Text('Shipping'),
-                        ),
-                        pw.Container(
-                          width: 100,
-                          child: pw.Text(
-                            'Rp ${NumberFormat('#,###').format(totals['shipping'])}',
-                            textAlign: pw.TextAlign.right,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (totals['tax'] > 0) ...[
-                      pw.SizedBox(height: 5),
-                      pw.Row(
-                        mainAxisSize: pw.MainAxisSize.min,
+                    pw.Spacer(flex: 7),
+                    pw.Expanded(
+                      flex: 4,
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                         children: [
-                          pw.Container(
-                            width: 150,
-                            child: pw.Text('Tax'),
-                          ),
-                          pw.Container(
-                            width: 100,
-                            child: pw.Text(
-                              'Rp ${NumberFormat('#,###').format(totals['tax'])}',
-                              textAlign: pw.TextAlign.right,
-                            ),
+                          pw.Row(
+                            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                            children: [
+                              pw.Text(
+                                'Total:',
+                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                              ),
+                              pw.Text(
+                                'Rp ${orderDetails['total_amount']}',
+                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                    if (totals['discount'] > 0) ...[
+                    ),
+                  ],
+                ),
+                
+                pw.SizedBox(height: 30),
+                
+                // Payment Info
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey300),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'Payment Information',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                      ),
                       pw.SizedBox(height: 5),
-                      pw.Row(
-                        mainAxisSize: pw.MainAxisSize.min,
-                        children: [
-                          pw.Container(
-                            width: 150,
-                            child: pw.Text('Discount'),
-                          ),
-                          pw.Container(
-                            width: 100,
-                            child: pw.Text(
-                              '- Rp ${NumberFormat('#,###').format(totals['discount'])}',
-                              textAlign: pw.TextAlign.right,
-                            ),
-                          ),
-                        ],
-                      ),
+                      pw.Text('Payment Method: ${orderDetails['payment_method']}'),
+                      pw.Text('Payment Status: ${_formatStatus(orderDetails['payment_status'])}'),
+                      pw.Text('Order Status: ${_formatStatus(orderDetails['status'])}'),
                     ],
-                    pw.Divider(),
-                    pw.Row(
-                      mainAxisSize: pw.MainAxisSize.min,
-                      children: [
-                        pw.Container(
-                          width: 150,
-                          child: pw.Text(
-                            'TOTAL',
-                            style: pw.TextStyle(
-                              fontWeight: pw.FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        pw.Container(
-                          width: 100,
-                          child: pw.Text(
-                            'Rp ${NumberFormat('#,###').format(totals['total'])}',
-                            style: pw.TextStyle(
-                              fontWeight: pw.FontWeight.bold,
-                            ),
-                            textAlign: pw.TextAlign.right,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              
-              pw.SizedBox(height: 40),
-              
-              // Payment Details
-              pw.Container(
-                padding: const pw.EdgeInsets.all(10),
-                decoration: pw.BoxDecoration(
-                  color: PdfColors.grey100,
-                  borderRadius: pw.BorderRadius.circular(5),
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(
-                      'Payment Details',
-                      style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    pw.SizedBox(height: 5),
-                    pw.Text('Method: ${paymentData['method'] ?? 'Unknown'}'),
-                    pw.Text('Status: ${_formatStatus(paymentData['status'] ?? 'pending')}'),
-                    if (paymentData['transaction_id'] != null) 
-                      pw.Text('Transaction ID: ${paymentData['transaction_id']}'),
-                    if (paymentData['payment_date'] != null) 
-                      pw.Text('Date: ${_formatDate(paymentData['payment_date'])}'),
-                  ],
-                ),
-              ),
-              
-             pw.SizedBox(height: 20),
-              
-              // Shipping Details
-              pw.Container(
-                padding: const pw.EdgeInsets.all(10),
-                decoration: pw.BoxDecoration(
-                  color: PdfColors.grey100,
-                  borderRadius: pw.BorderRadius.circular(5),
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(
-                      'Shipping Details',
-                      style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    pw.SizedBox(height: 5),
-                    pw.Text('Method: ${shippingData['method'] ?? 'Standard Delivery'}'),
-                    pw.Text('Courier: ${shippingData['courier'] ?? 'Default Courier'}'),
-                    if (shippingData['tracking_number'] != null) 
-                      pw.Text('Tracking Number: ${shippingData['tracking_number']}'),
-                    if (shippingData['address'] != null) 
-                      pw.Text('Address: ${shippingData['address']}'),
-                  ],
-                ),
-              ),
-              
-              pw.SizedBox(height: 40),
-              
-              // Thank You Note
-              pw.Center(
-                child: pw.Text(
+                
+                pw.SizedBox(height: 20),
+                
+                // Notes
+                pw.Text(
                   'Thank you for your business!',
                   style: pw.TextStyle(
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 14,
+                    fontStyle: pw.FontStyle.italic,
+                    color: PdfColors.grey700,
                   ),
                 ),
-              ),
-              
-              pw.SizedBox(height: 10),
-              
-              pw.Center(
-                child: pw.Text(
-                  'For any questions regarding this invoice, please contact support@example.com',
-                  style: const pw.TextStyle(
-                    fontSize: 10,
-                  ),
-                  textAlign: pw.TextAlign.center,
-                ),
-              ),
-            ];
-          },
-          footer: (pw.Context context) {
-            return pw.Footer(
-              leading: pw.Text(
-                'Generated on ${DateTime.now().toString().split('.')[0]}',
-                style: const pw.TextStyle(
-                  fontSize: 10,
-                  color: PdfColors.grey700,
-                ),
-              ),
-              trailing: pw.Text(
-                'Page ${context.pageNumber} of ${context.pagesCount}',
-                style: const pw.TextStyle(
-                  fontSize: 10,
-                  color: PdfColors.grey700,
-                ),
-              ),
+              ],
             );
           },
         ),
       );
       
-      // Save the PDF to a file
+      // Get the directory for saving PDF
       final directory = await getApplicationDocumentsDirectory();
-      final filePath = '${directory.path}/Order_${widget.orderId}.pdf';
-      final file = File(filePath);
+      final file = File('${directory.path}/invoice_${widget.orderId}.pdf');
+      
+      // Save the PDF file
       await file.writeAsBytes(await pdf.save());
       
-      // Share the PDF
-      await Share.shareXFiles(
-        [XFile(filePath)],
-        subject: 'Order Invoice #${widget.orderId}',
-        text: 'Please find attached the invoice for your order #${widget.orderId}',
-      );
+      // Close loading dialog
+      Navigator.pop(context);
       
-      setState(() {
-        isLoadingPdf = false;
-      });
-      
+      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Invoice generated and shared'),
+          content: Text('Invoice generated successfully'),
           backgroundColor: Colors.green,
         ),
       );
+      
+      // Open the PDF
+      await OpenFile.open(file.path);
     } catch (e) {
-      debugPrint('Error generating PDF: $e');
-      setState(() {
-        isLoadingPdf = false;
-      });
+      // Close loading dialog if still showing
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      
+      debugPrint('Error generating invoice: $e');
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to generate invoice: ${e.toString()}'),
+          content: Text('Error: ${e.toString()}'),
           backgroundColor: Colors.red,
         ),
       );
     }
   }
-
-  @override
-  Widget build(BuildContext context) {
-    final totals = isLoading ? null : _calculateOrderTotals();
+  
+  // Share order details
+  void _shareOrder() {
+    try {
+      // Format the share text
+      String shareText = 'Order #${widget.orderId}\n';
+      shareText += 'Status: ${_formatStatus(orderDetails['status'])}\n';
+      shareText += 'Customer: ${customerInfo['name']}\n';
+      shareText += 'Total Amount: ${currencyFormat.format(orderDetails['total_amount'])}\n\n';
+      
+      // Add items to share text
+      shareText += 'Items:\n';
+      for (final item in orderItems) {
+        shareText += '- ${item['quantity']} x ${item['product_name']} (${currencyFormat.format(item['price'])} each)\n';
+      }
+      
+      // Share order details
+      Share.share(shareText);
+    } catch (e) {
+      debugPrint('Error sharing order: $e');
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+  
+  // Contact customer via email
+  void _contactCustomer() async {
+    if (customerInfo['email']?.isEmpty ?? true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No email address available for this customer'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     
-    return Scaffold(
-      appBar: CustomAppBar(
-        title: 'Order #${widget.orderId}',
-        showBackButton: true,
-        actions: [
-          if (!isLoading)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: fetchOrderDetails,
-              tooltip: 'Refresh',
-            ),
-          if (!isLoading)
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert),
-              onSelected: (value) {
-                if (value == 'pdf') {
-                  generateInvoicePdf();
-                } else if (value == 'share') {
-                  Share.share(
-                    'Order #${widget.orderId}\n'
-                    'Status: ${_formatStatus(currentStatus)}\n'
-                    'Customer: ${customerData['name'] ?? 'Unknown'}\n'
-                    'Total: ${currencyFormat.format(totals?['total'] ?? 0)}\n'
-                    'Date: ${_formatDate(orderDetails['created_at'])}',
-                    subject: 'Order Details #${widget.orderId}',
-                  );
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem<String>(
-                  value: 'pdf',
-                  child: Row(
-                    children: [
-                      Icon(Icons.picture_as_pdf, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Generate PDF'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'share',
-                  child: Row(
-                    children: [
-                      Icon(Icons.share, color: Colors.blue),
-                      SizedBox(width: 8),
-                      Text('Share Order Details'),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-        ],
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : errorMessage.isNotEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        color: Colors.red,
-                        size: 60,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        errorMessage,
-                        style: const TextStyle(fontSize: 16),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton(
-                        onPressed: fetchOrderDetails,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: fetchOrderDetails,
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Order Info Card
-                        Card(
-                          elevation: 2,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      'Order #${widget.orderId}',
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      _formatDate(orderDetails['created_at']),
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                
-                                // Order Status
-                                Row(
-                                  children: [
-                                    const Text(
-                                      'Status:',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: _getStatusColor(currentStatus).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(
-                                          color: _getStatusColor(currentStatus),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        _formatStatus(currentStatus),
-                                        style: TextStyle(
-                                          color: _getStatusColor(currentStatus),
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    if (!isUpdating)
-                                      PopupMenuButton<String>(
-                                        icon: const Icon(Icons.edit),
-                                        tooltip: 'Update Status',
-                                        onSelected: updateOrderStatus,
-                                        itemBuilder: (context) => statusOptions
-                                            .where((status) => status != currentStatus)
-                                            .map((status) => PopupMenuItem<String>(
-                                                  value: status,
-                                                  child: Text(_formatStatus(status)),
-                                                ))
-                                            .toList(),
-                                      )
-                                    else
-                                      const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                
-                                if (statusUpdateError.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 8),
-                                    child: Text(
-                                      statusUpdateError,
-                                      style: TextStyle(
-                                        color: Colors.red[700],
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                
-                                const SizedBox(height: 16),
-                                
-                                // Order Timeline
-                                OrderTimeline(
-                                  currentStatus: currentStatus,
-                                  statusOptions: statusOptions,
-                                  statusColors: {
-                                    'pending': Colors.orange,
-                                    'processing': Colors.blue,
-                                    'shipped': Colors.indigo,
-                                    'delivered': Colors.green,
-                                    'cancelled': Colors.red,
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        // Order Items
-                        const Text(
-                          'Order Items',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        
-                        // Items List
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: orderItems.length,
-                          itemBuilder: (context, index) {
-                            final item = orderItems[index];
-                            return OrderItemCard(
-                              name: item['name'],
-                              image: item['image'],
-                              sku: item['sku'],
-                              price: item['price'],
-                              quantity: item['quantity'],
-                              subtotal: item['subtotal'],
-                              variations: item['variations'],
-                              notes: item['notes'],
-                              currencyFormat: currencyFormat,
-                            );
-                          },
-                        ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        // Order Totals
-                        Card(
-                          elevation: 2,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Order Summary',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Text('Subtotal'),
-                                    Text(currencyFormat.format(totals?['subtotal'] ?? 0)),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Text('Shipping'),
-                                    Text(currencyFormat.format(totals?['shipping'] ?? 0)),
-                                  ],
-                                ),
-                                
-                                if ((totals?['tax'] ?? 0) > 0) ...[
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text('Tax'),
-                                      Text(currencyFormat.format(totals?['tax'] ?? 0)),
-                                    ],
-                                  ),
-                                ],
-                                
-                                if ((totals?['discount'] ?? 0) > 0) ...[
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text('Discount'),
-                                      Text('- ${currencyFormat.format(totals?['discount'] ?? 0)}'),
-                                    ],
-                                  ),
-                                ],
-                                
-                                const Divider(height: 24),
-                                
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Text(
-                                      'Total',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      currencyFormat.format(totals?['total'] ?? 0),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        // Customer Details
-                        const Text(
-                          'Customer Details',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        CustomerDetailsCard(
-                          customerData: customerData,
-                          onEmail: () {
-                            if (customerData['email'] != null && customerData['email'].toString().isNotEmpty) {
-                              final Uri emailUri = Uri(
-                                scheme: 'mailto',
-                                path: customerData['email'],
-                                query: 'subject=Regarding%20Order%20%23${widget.orderId}',
-                              );
-                              launchUrl(emailUri);
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Customer email not available'),
-                                ),
-                              );
-                            }
-                          },
-                          onCall: () {
-                            if (customerData['phone'] != null && customerData['phone'].toString().isNotEmpty) {
-                              final Uri phoneUri = Uri(
-                                scheme: 'tel',
-                                path: customerData['phone'],
-                              );
-                              launchUrl(phoneUri);
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Customer phone not available'),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        // Payment Details
-                        const Text(
-                          'Payment Details',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        PaymentDetailsCard(
-                          paymentData: paymentData,
-                          currencyFormat: currencyFormat,
-                          formatDate: _formatDate,
-                          formatStatus: _formatStatus,
-                          getStatusColor: _getStatusColor,
-                        ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        // Shipping Details
-                        const Text(
-                          'Shipping Details',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        ShippingDetailsCard(
-                          shippingData: shippingData,
-                          onTrackShipment: () {
-                            if (shippingData['tracking_url'] != null && 
-                                shippingData['tracking_url'].toString().isNotEmpty) {
-                              launchUrl(
-                                Uri.parse(shippingData['tracking_url']),
-                                mode: LaunchMode.externalApplication,
-                              );
-                            } else if (shippingData['tracking_number'] != null && 
-                                       shippingData['tracking_number'].toString().isNotEmpty &&
-                                       shippingData['courier'] != null) {
-                              // Try to generate a tracking URL based on courier
-                              final courier = shippingData['courier'].toString().toLowerCase();
-                              String? trackingUrl;
-                              
-                              if (courier.contains('jne')) {
-                                trackingUrl = 'https://www.jne.co.id/id/tracking/trace/${shippingData['tracking_number']}';
-                              } else if (courier.contains('pos')) {
-                                trackingUrl = 'https://www.posindonesia.co.id/en/tracking/${shippingData['tracking_number']}';
-                              } else if (courier.contains('tiki')) {
-                                trackingUrl = 'https://tiki.id/id/tracking?awb=${shippingData['tracking_number']}';
-                              } else if (courier.contains('sicepat')) {
-                                trackingUrl = 'https://www.sicepat.com/checkAwb/${shippingData['tracking_number']}';
-                              } else if (courier.contains('anteraja')) {
-                                trackingUrl = 'https://anteraja.id/tracking/${shippingData['tracking_number']}';
-                              } else if (courier.contains('j&t') || courier.contains('jnt')) {
-                                trackingUrl = 'https://www.jet.co.id/track/${shippingData['tracking_number']}';
-                              }
-                              
-                              if (trackingUrl != null) {
-                                launchUrl(
-                                  Uri.parse(trackingUrl),
-                                  mode: LaunchMode.externalApplication,
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Tracking link not available'),
-                                  ),
-                                );
-                              }
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Tracking information not available'),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                        
-                        const SizedBox(height: 32),
-                        
-                        // Actions
-                        if (isLoadingPdf)
-                          const Center(
-                            child: Column(
-                              children: [
-                                CircularProgressIndicator(),
-                                SizedBox(height: 16),
-                                Text('Generating invoice PDF...'),
-                              ],
-                            ),
-                          )
-                        else
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              ElevatedButton.icon(
-                                onPressed: generateInvoicePdf,
-                                icon: const Icon(Icons.download),
-                                label: const Text('Generate Invoice'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Theme.of(context).primaryColor,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        
-                        const SizedBox(height: 32),
-                      ],
-                    ),
-                  ),
-                ),
+    // Create email URI
+    final Uri emailUri = Uri(
+      scheme: 'mailto',
+      path: customerInfo['email'],
+      queryParameters: {
+        'subject': 'Regarding your order #${widget.orderId}',
+        'body': 'Dear ${customerInfo['name']},\n\nThank you for your order #${widget.orderId}.\n\n',
+      },
     );
+    
+    // Open email app
+    try {
+      if (await canLaunchUrl(emailUri)) {
+        await launchUrl(emailUri);
+      } else {
+        throw 'Could not launch email app';
+      }
+    } catch (e) {
+      debugPrint('Error launching email: $e');
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

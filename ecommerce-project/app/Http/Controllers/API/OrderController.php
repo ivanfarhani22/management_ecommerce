@@ -7,9 +7,12 @@ use App\Services\OrderService;
 use App\Models\Order;
 use App\Models\Address;
 use Illuminate\Http\Request;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests; // ✅ Tambahkan baris ini
 
 class OrderController extends Controller
 {
+    use AuthorizesRequests; // ✅ Tambahkan ini di dalam class
+
     protected $orderService;
 
     public function __construct(OrderService $orderService)
@@ -79,18 +82,19 @@ class OrderController extends Controller
             ], 400);
         }
     }
+
     public function updateStatus(Order $order, Request $request)
-{
-    $validated = $request->validate([
-        'status' => 'required|string|in:pending,processing,shipped,delivered,cancelled',
-    ]);
-    
-    $order->status = $validated['status'];
-    $order->save();
-    
-    return response()->json([
-        'message' => 'Order status updated successfully',
-        'order' => $order
-    ]);
-}
+    {
+        $validated = $request->validate([
+            'status' => 'required|string|in:pending,processing,shipped,delivered,cancelled',
+        ]);
+        
+        $order->status = $validated['status'];
+        $order->save();
+        
+        return response()->json([
+            'message' => 'Order status updated successfully',
+            'order' => $order
+        ]);
+    }
 }
