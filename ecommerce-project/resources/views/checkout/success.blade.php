@@ -63,7 +63,7 @@
 
         <div class="space-x-4">
             @if(isset($order->id))
-                <a href="{{ route('orders.detail', $order->id) }}" 
+                <a href="{{ route('orders.show', $order->id) }}" 
                    class="bg-blue-500 text-white px-6 py-3 rounded-md hover:bg-blue-600">
                     View Order Details
                 </a>

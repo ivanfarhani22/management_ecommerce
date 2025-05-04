@@ -10,6 +10,7 @@ use App\Http\Controllers\API\ProductController;
 use App\Http\Controllers\API\OrderController;
 use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\API\CartController;
+use App\Http\Controllers\API\PaymentController;
 
 // ========== Public API Routes ==========
 Route::prefix('v1')->group(function () {
@@ -78,6 +79,17 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::post('/products', [ProductController::class, 'store']);
     Route::put('/products/{product}', [ProductController::class, 'update']);
     Route::delete('/products/{product}', [ProductController::class, 'destroy']);
+    
+    // Payments
+    Route::post('/payments', [PaymentController::class, 'process']); // Tambahkan endpoint POST langsung untuk payments
+    Route::prefix('payments')->group(function () {
+        Route::get('/', [PaymentController::class, 'index']);
+        Route::get('/{id}', [PaymentController::class, 'show']);
+        Route::post('/process', [PaymentController::class, 'process']); // Tetap mempertahankan endpoint ini
+        Route::post('/{id}/refund', [PaymentController::class, 'refund']);
+        Route::get('/order/{orderId}', [PaymentController::class, 'getByOrder']);
+        Route::get('/status/{status}', [PaymentController::class, 'getByStatus']);
+    });
 });
 
 // ========== Fallback ==========
