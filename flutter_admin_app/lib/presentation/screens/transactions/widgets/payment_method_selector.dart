@@ -1,80 +1,90 @@
 import 'package:flutter/material.dart';
 
 class PaymentMethodSelector extends StatefulWidget {
+  final String initialValue;
   final Function(String) onPaymentMethodSelected;
+  final List<String> validMethods;
 
   const PaymentMethodSelector({
     super.key, 
+    required this.initialValue,
     required this.onPaymentMethodSelected,
+    this.validMethods = const ['bank_transfer', 'cash', 'credit_card'],
   });
 
   @override
-  _PaymentMethodSelectorState createState() => _PaymentMethodSelectorState();
+  State<PaymentMethodSelector> createState() => _PaymentMethodSelectorState();
 }
 
 class _PaymentMethodSelectorState extends State<PaymentMethodSelector> {
-  final List<Map<String, String>> _paymentMethods = [
-    {'name': 'Tunai', 'icon': 'assets/icons/cash.png'},
-    {'name': 'Transfer', 'icon': 'assets/icons/transfer.png'},
-    {'name': 'E-Wallet', 'icon': 'assets/icons/e-wallet.png'},
-  ];
-
-  String? _selectedPaymentMethod;
+  late String _selectedMethod;
+  
+  @override
+  void initState() {
+    super.initState();
+    _selectedMethod = widget.initialValue;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
+    // Map of payment methods to their display names and icons
+    final Map<String, Map<String, dynamic>> methodDetails = {
+      'bank_transfer': {
+        'displayName': 'Bank Transfer',
+        'icon': Icons.account_balance,
+      },
+      'cash': {
+        'displayName': 'Cash',
+        'icon': Icons.money,
+      },
+      'credit_card': {
+        'displayName': 'Credit Card',
+        'icon': Icons.credit_card,
+      },
+      // Add more payment methods as needed
+    };
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade400),
+        borderRadius: BorderRadius.circular(4),
       ),
-      itemCount: _paymentMethods.length,
-      itemBuilder: (context, index) {
-        final method = _paymentMethods[index];
-        return GestureDetector(
-          onTap: () {
-            setState(() {
-              _selectedPaymentMethod = method['name'];
-            });
-            widget.onPaymentMethodSelected(method['name']!);
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: _selectedPaymentMethod == method['name'] 
-                ? Colors.blue.shade100 
-                : Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: _selectedPaymentMethod == method['name'] 
-                  ? Colors.blue 
-                  : Colors.transparent,
+      child: Column(
+        children: widget.validMethods.map((method) {
+          final isSelected = _selectedMethod == method;
+          final details = methodDetails[method] ?? {
+            'displayName': method,
+            'icon': Icons.payment,
+          };
+          
+          return ListTile(
+            leading: Icon(
+              details['icon'],
+              color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade600,
+            ),
+            title: Text(
+              details['displayName'],
+              style: TextStyle(
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Theme.of(context).primaryColor : Colors.black87,
               ),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset(
-                  method['icon']!,
-                  width: 48,
-                  height: 48,
-                ),
-                SizedBox(height: 8),
-                Text(
-                  method['name']!,
-                  style: TextStyle(
-                    fontWeight: _selectedPaymentMethod == method['name'] 
-                      ? FontWeight.bold 
-                      : FontWeight.normal,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+            tileColor: isSelected ? Colors.grey.shade100 : null,
+            onTap: () {
+              setState(() {
+                _selectedMethod = method;
+              });
+              widget.onPaymentMethodSelected(method);
+            },
+            trailing: isSelected
+                ? Icon(
+                    Icons.check_circle,
+                    color: Theme.of(context).primaryColor,
+                  )
+                : null,
+          );
+        }).toList(),
+      ),
     );
   }
 }

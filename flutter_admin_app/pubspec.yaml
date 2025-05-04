@@ -111,6 +111,9 @@ flutter:
   assets:
     - assets/images/
     - assets/images/icons/logo.jpg
+    - assets/images/icons/cash.png
+    - assets/images/icons/transfer.png
+    - assets/images/icons/e-wallet.png
     - assets/fonts/
     - assets/translations/
 
