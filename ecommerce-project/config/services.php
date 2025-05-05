@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+    ],
+    
+    'chatbot' => [
+        'max_history_items' => env('CHATBOT_MAX_HISTORY', 50),
+        'history_ttl_days' => env('CHATBOT_HISTORY_TTL', 30),
+    ],
+
 ];

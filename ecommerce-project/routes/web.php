@@ -16,6 +16,7 @@ use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ChatbotController;
 
 // API Controllers
 use App\Http\Controllers\API\AuthController;
@@ -141,6 +142,12 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
 });
 
+// Chatbot API Routes
+Route::prefix('chatbot')->group(function () {
+    Route::post('/', [App\Http\Controllers\ChatbotController::class, 'sendMessage']);
+    Route::get('/history', [App\Http\Controllers\ChatbotController::class, 'getHistory']);
+    Route::post('/clear-history', [App\Http\Controllers\ChatbotController::class, 'clearHistory']);
+});
 // Error Routes
 Route::fallback(function () {
     return view('errors.404');
