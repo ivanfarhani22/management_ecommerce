@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../../data/repositories/transaction_repository.dart';
 import '../../../data/models/transaction.dart';
 import '../../../utils/currency_formatter.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../widgets/app_bar.dart';
 
 class TransactionDetailsScreen extends StatefulWidget {
   final String transactionId;
@@ -20,6 +22,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
   bool _isLoading = true;
   Transaction? _transaction;
   String? _errorMessage;
+  final _secureStorage = const FlutterSecureStorage();
 
   @override
   void initState() {
@@ -27,7 +30,34 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
     _loadTransactionDetails();
   }
 
+  void _handleUnauthorized() {
+    // Delete token because it's no longer valid
+    _secureStorage.delete(key: 'auth_token');
+    
+    // Show dialog and redirect to login page
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Sesi Berakhir'),
+        content: const Text('Silakan login kembali untuk melanjutkan.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Navigate to login page and remove all previous routes
+              Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _loadTransactionDetails() async {
+    if (!mounted) return;
+    
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -38,12 +68,28 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
       // Fixed: Pass widget.transactionId directly as it's already a String
       final transaction = await transactionRepository.getTransactionById(widget.transactionId);
       
+      if (!mounted) return;
+      
       setState(() {
         _transaction = transaction;
         _isLoading = false;
       });
     } catch (e) {
       print('Error loading transaction details: $e');
+      
+      if (!mounted) return;
+      
+      // Check if the error is due to unauthorized access
+      if (e.toString().contains('User is not authenticated') || 
+          e.toString().contains('401') || 
+          e.toString().toLowerCase().contains('unauthorized')) {
+        // Only handle unauthorized if we're still on this screen
+        if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+          _handleUnauthorized();
+        }
+        return;
+      }
+      
       setState(() {
         _isLoading = false;
         _errorMessage = e.toString();
@@ -70,7 +116,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
             flex: 3,
             child: Text(
               value,
-              style: TextStyle(fontSize: 16),
+              style: const TextStyle(fontSize: 16),
             ),
           ),
         ],
@@ -95,7 +141,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
     }
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: badgeColor.withOpacity(0.2),
         borderRadius: BorderRadius.circular(20),
@@ -114,8 +160,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Detail Transaksi'),
+      appBar: CustomAppBar(
+        title: 'Detail Transaksi',
         actions: [
           if (_transaction != null && (_transaction!.status == 'pending' || _transaction!.status == 'failed'))
             PopupMenuButton<String>(
@@ -123,23 +169,23 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                 if (value == 'retry') {
                   // Handle retry payment
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Retry payment functionality will be implemented')),
+                    const SnackBar(content: Text('Retry payment functionality will be implemented')),
                   );
                 } else if (value == 'cancel') {
                   // Handle cancel transaction
                   final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (context) => AlertDialog(
-                      title: Text('Cancel Transaction'),
-                      content: Text('Are you sure you want to cancel this transaction?'),
+                      title: const Text('Cancel Transaction'),
+                      content: const Text('Are you sure you want to cancel this transaction?'),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(context, false),
-                          child: Text('No'),
+                          child: const Text('No'),
                         ),
                         TextButton(
                           onPressed: () => Navigator.pop(context, true),
-                          child: Text('Yes'),
+                          child: const Text('Yes'),
                         ),
                       ],
                     ),
@@ -151,8 +197,10 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                       // Fixed: Directly pass the transaction ID as a String
                       await transactionRepository.cancelTransaction(widget.transactionId);
                       
+                      if (!mounted) return;
+                      
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Transaction cancelled successfully')),
+                        const SnackBar(content: Text('Transaction cancelled successfully')),
                       );
                       
                       // Refresh transaction details
@@ -161,6 +209,19 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                       // Return result to previous screen
                       Navigator.pop(context, true);
                     } catch (e) {
+                      if (!mounted) return;
+                      
+                      // Check for unauthorized errors here too
+                      if (e.toString().contains('User is not authenticated') || 
+                          e.toString().contains('401') || 
+                          e.toString().toLowerCase().contains('unauthorized')) {
+                        // Only handle unauthorized if we're still on this screen
+                        if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+                          _handleUnauthorized();
+                        }
+                        return;
+                      }
+                      
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text('Failed to cancel transaction: ${e.toString()}'),
@@ -172,17 +233,17 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                 }
               },
               itemBuilder: (context) => [
-                PopupMenuItem(
+                const PopupMenuItem(
                   value: 'retry',
                   child: Row(
                     children: [
-                      Icon(Icons.refresh, color: Theme.of(context).primaryColor),
+                      Icon(Icons.refresh, color: Colors.blue),
                       SizedBox(width: 8),
                       Text('Retry Payment'),
                     ],
                   ),
                 ),
-                PopupMenuItem(
+                const PopupMenuItem(
                   value: 'cancel',
                   child: Row(
                     children: [
@@ -197,7 +258,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
         ],
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
               ? Center(
                   child: Column(
@@ -205,23 +266,23 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                     children: [
                       Text(
                         'Error: $_errorMessage',
-                        style: TextStyle(color: Colors.red),
+                        style: const TextStyle(color: Colors.red),
                         textAlign: TextAlign.center,
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: _loadTransactionDetails,
-                        child: Text('Try Again'),
+                        child: const Text('Try Again'),
                       ),
                     ],
                   ),
                 )
               : _transaction == null
-                  ? Center(
+                  ? const Center(
                       child: Text('Transaction not found'),
                     )
                   : SingleChildScrollView(
-                      padding: EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -232,7 +293,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Padding(
-                              padding: EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(16),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
@@ -243,7 +304,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                                       color: Colors.grey[600],
                                     ),
                                   ),
-                                  SizedBox(height: 8),
+                                  const SizedBox(height: 8),
                                   Text(
                                     'Rp ${_transaction!.amount.toStringAsFixed(0)}',
                                     style: TextStyle(
@@ -252,46 +313,46 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                                       color: Theme.of(context).primaryColor,
                                     ),
                                   ),
-                                  SizedBox(height: 16),
+                                  const SizedBox(height: 16),
                                   _buildStatusBadge(_transaction!.status),
                                 ],
                               ),
                             ),
                           ),
 
-                          SizedBox(height: 24),
-                          Text(
+                          const SizedBox(height: 24),
+                          const Text(
                             'Transaction Details',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          SizedBox(height: 8),
+                          const SizedBox(height: 8),
                           Card(
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Padding(
-                              padding: EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(16),
                               child: Column(
                                 children: [
                                   _buildDetailRow('Transaction ID', '#${_transaction!.id}'),
-                                  Divider(),
+                                  const Divider(),
                                   _buildDetailRow(
                                     'Date',
                                     _transaction!.transactionDate != null
                                         ? '${_transaction!.transactionDate!.day}/${_transaction!.transactionDate!.month}/${_transaction!.transactionDate!.year} ${_transaction!.transactionDate!.hour}:${_transaction!.transactionDate!.minute.toString().padLeft(2, '0')}'
                                         : 'Not available',
                                   ),
-                                  Divider(),
+                                  const Divider(),
                                   _buildDetailRow('Payment Method', _transaction!.paymentMethod),
                                   if (_transaction!.reference != null) ...[
-                                    Divider(),
+                                    const Divider(),
                                     _buildDetailRow('Reference', _transaction!.reference!),
                                   ],
                                   if (_transaction!.orderId != null) ...[
-                                    Divider(),
+                                    const Divider(),
                                     _buildDetailRow('Order ID', '#${_transaction!.orderId}'),
                                   ],
                                 ],
@@ -300,23 +361,23 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                           ),
 
                           if (_transaction!.status == 'failed') ...[
-                            SizedBox(height: 24),
+                            const SizedBox(height: 24),
                             ElevatedButton(
                               onPressed: () {
                                 // Handle retry payment
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Retry payment functionality will be implemented')),
+                                  const SnackBar(content: Text('Retry payment functionality will be implemented')),
                                 );
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Theme.of(context).primaryColor,
-                                padding: EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                minimumSize: Size(double.infinity, 50),
+                                minimumSize: const Size(double.infinity, 50),
                               ),
-                              child: Text(
+                              child: const Text(
                                 'RETRY PAYMENT',
                                 style: TextStyle(
                                   fontSize: 16,
@@ -327,23 +388,23 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                           ],
 
                           if (_transaction!.status == 'success') ...[
-                            SizedBox(height: 24),
+                            const SizedBox(height: 24),
                             ElevatedButton(
                               onPressed: () {
                                 // Handle download receipt
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Download receipt functionality will be implemented')),
+                                  const SnackBar(content: Text('Download receipt functionality will be implemented')),
                                 );
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.green,
-                                padding: EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                minimumSize: Size(double.infinity, 50),
+                                minimumSize: const Size(double.infinity, 50),
                               ),
-                              child: Row(
+                              child: const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(Icons.receipt),
