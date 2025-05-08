@@ -16,7 +16,8 @@ class AppConfig {
       // For debugging: use different URL based on platform
       if (Platform.isAndroid) {
         // Your specific IP address for Android device testing
-        return 'http://10.253.131.51:8000/api';
+
+        return 'http://192.168.100.12:8000/api';
       } else {
         // Windows, macOS, Linux, etc.
         return 'http://127.0.0.1:8000/api';
@@ -33,7 +34,8 @@ class AppConfig {
       if (Platform.isAndroid) {
         // Android emulator needs 10.0.2.2 to access host's localhost
         // or use your specific IP for physical devices
-        return 'http://10.253.131.51:8000/storage';
+
+        return 'http://192.168.100.12:8000/storage';
       } else {
         // Windows, macOS, Linux, etc.
         return 'http://127.0.0.1:8000/storage';
@@ -49,7 +51,8 @@ class AppConfig {
     return [
       'http://127.0.0.1:8000/storage',     // localhost
       'http://10.0.2.2:8000/storage',      // Android emulator localhost
-      'http://10.253.131.51:8000/storage',   // Specific IP address
+
+      'http://192.168.100.12:8000/storage',  
     ];
   }
   

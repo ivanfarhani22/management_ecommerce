@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
+use App\Models\Payment;
 use App\Filament\Widgets\AdminLatestOrders;
 use App\Filament\Widgets\AdminPopularProducts;
 use App\Filament\Widgets\AdminMonthlySalesChart;
@@ -55,12 +56,6 @@ class AdminDashboard extends Dashboard
                 ->color('success')
                 ->button()
                 ->openUrlInNewTab(),
-                
-            Action::make('refresh')
-                ->label('Refresh Data')
-                ->icon('heroicon-o-arrow-path')
-                ->action(fn () => $this->refresh())
-                ->color('gray'),
         ];
     }
 
