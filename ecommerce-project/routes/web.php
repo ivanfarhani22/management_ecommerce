@@ -143,11 +143,12 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // Chatbot API Routes
-Route::prefix('chatbot')->group(function () {
-    Route::post('/', [App\Http\Controllers\ChatbotController::class, 'sendMessage']);
-    Route::get('/history', [App\Http\Controllers\ChatbotController::class, 'getHistory']);
-    Route::post('/clear-history', [App\Http\Controllers\ChatbotController::class, 'clearHistory']);
+Route::prefix('chatbot')->controller(ChatbotController::class)->group(function () {
+    Route::post('/', 'sendMessage');
+    Route::get('/history', 'getHistory');
+    Route::post('/clear-history', 'clearHistory');
 });
+
 // Error Routes
 Route::fallback(function () {
     return view('errors.404');

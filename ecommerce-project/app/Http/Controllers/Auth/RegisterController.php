@@ -37,6 +37,6 @@ class RegisterController extends Controller
 
         auth()->login($user);
 
-        return redirect()->route('index')->with('success', 'Registration successful');
+        return redirect()->route('home.index')->with('success', 'Registration successful');
     }
 }
