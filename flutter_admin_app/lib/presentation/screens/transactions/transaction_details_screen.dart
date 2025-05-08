@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../data/repositories/transaction_repository.dart';
 import '../../../data/models/transaction.dart';
-import '../../../utils/currency_formatter.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../widgets/app_bar.dart';
 
@@ -351,10 +350,10 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                                     const Divider(),
                                     _buildDetailRow('Reference', _transaction!.reference!),
                                   ],
-                                  if (_transaction!.orderId != null) ...[
-                                    const Divider(),
-                                    _buildDetailRow('Order ID', '#${_transaction!.orderId}'),
-                                  ],
+                                  ...[
+                                  const Divider(),
+                                  _buildDetailRow('Order ID', '#${_transaction!.orderId}'),
+                                ],
                                 ],
                               ),
                             ),

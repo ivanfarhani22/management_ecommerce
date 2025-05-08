@@ -13,7 +13,7 @@ class OrderItemCard extends StatelessWidget {
   final NumberFormat currencyFormat;
 
   const OrderItemCard({
-    Key? key,
+    super.key,
     required this.name,
     required this.image,
     required this.sku,
@@ -23,7 +23,7 @@ class OrderItemCard extends StatelessWidget {
     required this.variations,
     required this.notes,
     required this.currencyFormat,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

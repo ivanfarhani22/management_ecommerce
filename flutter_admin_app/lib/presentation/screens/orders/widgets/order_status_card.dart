@@ -13,7 +13,7 @@ class OrderStatusCard extends StatelessWidget {
   final List<String> statusOptions;
 
   const OrderStatusCard({
-    Key? key,
+    super.key,
     required this.orderNumber,
     required this.customerName,
     required this.total,
@@ -22,7 +22,7 @@ class OrderStatusCard extends StatelessWidget {
     this.onTap,
     this.onStatusChange,
     this.statusOptions = const ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +31,7 @@ class OrderStatusCard extends StatelessWidget {
     
     // Gunakan warna yang sama untuk seluruh card
     final cardColor = theme.brightness == Brightness.dark 
-        ? colorScheme.surfaceVariant
+        ? colorScheme.surfaceContainerHighest
         : colorScheme.surface;
 
     // Warna teks yang sesuai dengan tema

@@ -9,7 +9,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:open_file/open_file.dart';
 import '../../../data/api/order_api.dart';
 import '../../../config/app_config.dart'; // Added for AppConfig
@@ -442,7 +441,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
           'user_id': userId,
           'address_id': orderData['address_id']?.toString() ?? orderData['shipping_address_id']?.toString() ?? '',
           'total_amount': double.tryParse(orderData['total']?.toString() ?? orderData['total_amount']?.toString() ?? '0') ?? 0,
-          'status': orderData['status']?.toString()?.toLowerCase() ?? 'pending',
+          'status': orderData['status']?.toString().toLowerCase() ?? 'pending',
           'created_at': orderData['created_at'] ?? '',
           'updated_at': orderData['updated_at'] ?? '',
           'payment_status': paymentData['status'] ?? orderData['payment_status'] ?? 'pending',
@@ -1314,7 +1313,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       ],
                     ),
                   );
-                }).toList(),
+                }),
                 
                 pw.SizedBox(height: 10),
                 

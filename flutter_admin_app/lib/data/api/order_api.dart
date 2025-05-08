@@ -52,7 +52,7 @@ class OrderService {
       ).timeout(AppConfig.apiTimeout);
       
       debugPrint('Response status code: ${response.statusCode}');
-      debugPrint('Response body (first 100 chars): ${response.body.length > 100 ? response.body.substring(0, 100) + '...' : response.body}');
+      debugPrint('Response body (first 100 chars): ${response.body.length > 100 ? '${response.body.substring(0, 100)}...' : response.body}');
       
       if (response.statusCode == 200) {
         final decodedData = json.decode(response.body);
