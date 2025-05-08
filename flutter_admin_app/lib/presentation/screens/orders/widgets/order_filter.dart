@@ -6,11 +6,11 @@ class OrderFilter extends StatefulWidget {
   final bool showRecentOnly;
 
   const OrderFilter({
-    Key? key,
+    super.key,
     required this.onFilterApplied,
     required this.currentStatus,
     required this.showRecentOnly,
-  }) : super(key: key);
+  });
 
   @override
   _OrderFilterState createState() => _OrderFilterState();

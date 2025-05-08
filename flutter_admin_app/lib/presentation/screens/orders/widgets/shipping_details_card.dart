@@ -5,10 +5,10 @@ class ShippingDetailsCard extends StatelessWidget {
   final VoidCallback onTrackShipment;
 
   const ShippingDetailsCard({
-    Key? key,
+    super.key,
     required this.shippingData,
     required this.onTrackShipment,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -11,12 +11,12 @@ class ImagePickerWidget extends StatefulWidget {
   final double size;
 
   const ImagePickerWidget({
-    Key? key,
+    super.key,
     this.initialImageUrl,
     required this.onImageSelected,
     this.allowCropping = false,
     this.size = 150.0,
-  }) : super(key: key);
+  });
 
   @override
   _ImagePickerWidgetState createState() => _ImagePickerWidgetState();
@@ -71,42 +71,37 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
   }
 
   Future<File?> _cropImage(File imageFile) async {
-    try {
-      final croppedFile = await ImageCropper().cropImage(
-        sourcePath: imageFile.path,
-        aspectRatioPresets: [
-          CropAspectRatioPreset.square,
-          CropAspectRatioPreset.ratio3x2,
-          CropAspectRatioPreset.original,
-        ],
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'Crop Image',
-            toolbarColor: Theme.of(context).primaryColor,
-            toolbarWidgetColor: Colors.white,
-            initAspectRatio: CropAspectRatioPreset.original,
-            lockAspectRatio: false,
-          ),
-          IOSUiSettings(
-            title: 'Crop Image',
-          ),
-        ],
-      );
-
-      if (croppedFile != null) {
-        return File(croppedFile.path);
-      }
-    } catch (e) {
-      debugPrint('Error cropping image: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error saat memotong gambar. Silakan coba lagi.'),
-          backgroundColor: Colors.red,
+  try {
+    final croppedFile = await ImageCropper().cropImage(
+      sourcePath: imageFile.path,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop Image',
+          toolbarColor: Theme.of(context).primaryColor,
+          toolbarWidgetColor: Colors.white,
+          initAspectRatio: CropAspectRatioPreset.original,
+          lockAspectRatio: false,
         ),
-      );
+        IOSUiSettings(
+          title: 'Crop Image',
+        ),
+      ],
+    );
+
+    if (croppedFile != null) {
+      return File(croppedFile.path);
     }
-    return null;
+  } catch (e) {
+    debugPrint('Error cropping image: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Error saat memotong gambar. Silakan coba lagi.'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
+  return null;
+}
 
   @override
   Widget build(BuildContext context) {

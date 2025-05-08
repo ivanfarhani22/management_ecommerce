@@ -9,13 +9,13 @@ class TransactionCard extends StatelessWidget {
   final String status;
 
   const TransactionCard({
-    Key? key,
+    super.key,
     required this.transactionId,
     required this.type,
     required this.amount,
     required this.date,
     required this.status,
-  }) : super(key: key);
+  });
 
   Color _getStatusColor() {
     switch (status.toLowerCase()) {

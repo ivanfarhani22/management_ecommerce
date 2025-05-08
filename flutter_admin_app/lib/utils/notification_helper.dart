@@ -10,7 +10,7 @@ class NotificationHelper {
   static Future<void> initialize() async {
     const initializationSettingsAndroid = AndroidInitializationSettings('app_icon');
     const initializationSettingsIOS = DarwinInitializationSettings();
-    
+
     const initializationSettings = InitializationSettings(
       android: initializationSettingsAndroid,
       iOS: initializationSettingsIOS,
@@ -18,7 +18,16 @@ class NotificationHelper {
 
     tz.initializeTimeZones();
 
-    await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    await _flutterLocalNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        // Handle notification tap or action
+        if (response.payload != null) {
+          // Example: Navigate to a specific screen based on the payload
+          print('Notification payload: ${response.payload}');
+        }
+      },
+    );
   }
 
   /// Schedule a notification at a specific time
@@ -37,6 +46,7 @@ class NotificationHelper {
         android: AndroidNotificationDetails(
           'channel_id',
           'channel_name',
+          channelDescription: 'This is the channel description',
           importance: Importance.high,
           priority: Priority.high,
         ),
@@ -52,16 +62,18 @@ class NotificationHelper {
     required int id,
     required String title,
     required String body,
+    String? payload,
   }) async {
     const androidPlatformChannelSpecifics = AndroidNotificationDetails(
       'channel_id',
       'channel_name',
+      channelDescription: 'This is the channel description',
       importance: Importance.high,
       priority: Priority.high,
     );
-    
+
     const iOSPlatformChannelSpecifics = DarwinNotificationDetails();
-    
+
     const platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
       iOS: iOSPlatformChannelSpecifics,
@@ -72,6 +84,7 @@ class NotificationHelper {
       title,
       body,
       platformChannelSpecifics,
+      payload: payload, // Optional payload for additional data
     );
   }
 
