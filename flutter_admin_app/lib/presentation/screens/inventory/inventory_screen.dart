@@ -16,7 +16,7 @@ class InventoryScreen extends StatefulWidget {
 
 class _InventoryScreenState extends State<InventoryScreen> {
   List<Map<String, dynamic>> _products = [];
-  Map<int, String> _categoryNames = {}; // Add this to store category names
+  final Map<int, String> _categoryNames = {}; // Add this to store category names
   List<String> _categoryList = ['All']; // For filter dropdown
   bool _isLoading = true;
   bool _hasError = false;

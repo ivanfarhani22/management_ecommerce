@@ -6,11 +6,11 @@ class OrderTimeline extends StatelessWidget {
   final Map<String, Color> statusColors;
 
   const OrderTimeline({
-    Key? key,
+    super.key,
     required this.currentStatus,
     required this.statusOptions,
     required this.statusColors,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -333,10 +333,10 @@ packages:
     dependency: transitive
     description:
       name: file
-      sha256: a3b4f84adafef897088c160faf7dfffb7696046cb13ae90b508c2cbc95d3b8d4
+      sha256: "1b92bec4fc2a72f59a8e15af5f52cd441e4a7860b49499d69dfa817af20e925d"
       url: "https://pub.dev"
     source: hosted
-    version: "7.0.1"
+    version: "6.1.4"
   file_selector_linux:
     dependency: transitive
     description:
@@ -593,26 +593,26 @@ packages:
     dependency: "direct main"
     description:
       name: image_cropper
-      sha256: f4bad5ed2dfff5a7ce0dfbad545b46a945c702bb6182a921488ef01ba7693111
+      sha256: "4e9c96c029eb5a23798da1b6af39787f964da6ffc78fd8447c140542a9f7c6fc"
       url: "https://pub.dev"
     source: hosted
-    version: "5.0.1"
+    version: "9.1.0"
   image_cropper_for_web:
     dependency: transitive
     description:
       name: image_cropper_for_web
-      sha256: "865d798b5c9d826f1185b32e5d0018c4183ddb77b7b82a931e1a06aa3b74974e"
+      sha256: fd81ebe36f636576094377aab32673c4e5d1609b32dec16fad98d2b71f1250a9
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.0"
+    version: "6.1.0"
   image_cropper_platform_interface:
     dependency: transitive
     description:
       name: image_cropper_platform_interface
-      sha256: ee160d686422272aa306125f3b6fb1c1894d9b87a5e20ed33fa008e7285da11e
+      sha256: "6ca6b81769abff9a4dcc3bbd3d75f5dfa9de6b870ae9613c8cd237333a4283af"
       url: "https://pub.dev"
     source: hosted
-    version: "5.0.0"
+    version: "7.1.0"
   image_picker:
     dependency: "direct main"
     description:
@@ -1053,6 +1053,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.5.1"
+  process:
+    dependency: transitive
+    description:
+      name: process
+      sha256: "53fd8db9cec1d37b0574e12f07520d582019cb6c44abf5479a01505099a34a09"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.2.4"
   provider:
     dependency: transitive
     description:
@@ -1518,10 +1526,10 @@ packages:
     dependency: transitive
     description:
       name: xdg_directories
-      sha256: "7a3f37b05d989967cdddcbb571f1ea834867ae2faa29725fd085180e0883aa15"
+      sha256: bd512f03919aac5f1313eb8249f223bacf4927031bf60b02601f81f687689e86
       url: "https://pub.dev"
     source: hosted
-    version: "1.1.0"
+    version: "0.2.0+3"
   xml:
     dependency: transitive
     description:

@@ -38,10 +38,10 @@ dependencies:
   flutter_secure_storage: ^9.0.0
 
   # Image Handling
-  image_picker: ^1.0.4
+  image_picker: ^1.1.2
   photo_view: ^0.14.0
   image: ^4.1.3
-  image_cropper: ^5.0.1
+  image_cropper: ^9.1.0 
 
   # Data Visualization
   fl_chart: ^0.63.0

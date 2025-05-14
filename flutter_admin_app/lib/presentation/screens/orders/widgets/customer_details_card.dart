@@ -6,11 +6,11 @@ class CustomerDetailsCard extends StatelessWidget {
   final VoidCallback onCall;
 
   const CustomerDetailsCard({
-    Key? key,
+    super.key,
     required this.customerData,
     required this.onEmail,
     required this.onCall,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -159,7 +159,7 @@ class CustomerDetailsCard extends StatelessWidget {
                           ],
                         ),
                       ))
-                  .toList(),
+                  ,
             ],
           ],
         ),

@@ -9,13 +9,13 @@ class PaymentDetailsCard extends StatelessWidget {
   final Function(String) getStatusColor;
 
   const PaymentDetailsCard({
-    Key? key,
+    super.key,
     required this.paymentData,
     required this.currencyFormat,
     required this.formatDate,
     required this.formatStatus,
     required this.getStatusColor,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
