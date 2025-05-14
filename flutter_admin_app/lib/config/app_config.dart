@@ -33,7 +33,9 @@ class AppConfig {
       if (Platform.isAndroid) {
         // Android emulator needs 10.0.2.2 to access host's localhost
         // or use your specific IP for physical devices
+
         return 'http://192.168.1.28:8000/storage';
+      
       } else {
         // Windows, macOS, Linux, etc.
         return 'http://127.0.0.1:8000/storage';
