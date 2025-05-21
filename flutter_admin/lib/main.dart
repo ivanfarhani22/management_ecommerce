@@ -1,37 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import 'app.dart';
 import 'data/api/auth_api.dart';
-import 'data/api/transaction_api.dart'; // Import TransactionApi
+import 'data/api/transaction_api.dart';
 import 'data/local/secure_storage.dart';
 import 'data/api/api_client.dart';
 import 'data/repositories/auth_repository.dart';
-import 'data/repositories/transaction_repository.dart'; // Import TransactionRepository
+import 'data/repositories/transaction_repository.dart';
 import 'presentation/blocs/auth/auth_bloc.dart';
 import 'utils/notification_helper.dart';
+import 'data/api/service_locator.dart'; // Import the ServiceLocator
 
 void main() async {
   // Pastikan binding Flutter sudah diinisialisasi
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
+    // Initialize the ServiceLocator first
+    ServiceLocator.setup();
+    
     // Inisialisasi layanan pendukung
     await NotificationHelper.initialize();
 
-    // Inisialisasi ApiClient - Removed baseUrl parameter
-    final apiClient = ApiClient(
-      client: http.Client(),
-      storage: const FlutterSecureStorage(
-        aOptions: AndroidOptions(
-          encryptedSharedPreferences: true,
-        ),
-      ),
-    );
-
+    // Get the initialized ApiClient from ServiceLocator
+    final apiClient = ServiceLocator.get<ApiClient>();
+    
     // Buat AuthApi dengan ApiClient
     final authApi = AuthApi(apiClient);
     
@@ -58,22 +53,15 @@ void main() async {
         child: ChangeNotifierProvider.value(
           value: transactionRepository,
           child: MultiBlocProvider(
-          providers: [
-            BlocProvider(
-              create: (context) => AuthBloc(
-                authRepository: authRepository,
+            providers: [
+              BlocProvider(
+                create: (context) => AuthBloc(
+                  authRepository: authRepository,
+                ),
               ),
-            ),
-            // You can add any TransactionBloc here if needed
-            // Example:
-            // BlocProvider(
-            //   create: (context) => TransactionBloc(
-            //     transactionRepository: transactionRepository,
-            //   ),
-            // ),
-          ],
-          child: const MyApp(),
-        ),
+            ],
+            child: const MyApp(),
+          ),
         ),
       ),
     );

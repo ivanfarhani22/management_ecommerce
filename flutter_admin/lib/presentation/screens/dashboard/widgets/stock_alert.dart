@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 class StockAlert extends StatelessWidget {
-  const StockAlert({super.key});
+  final List<Map<String, dynamic>> lowStockProducts;
+
+  const StockAlert({super.key, required this.lowStockProducts});
 
   @override
   Widget build(BuildContext context) {
@@ -16,28 +18,30 @@ class StockAlert extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        _buildStockAlertItem(
-          productName: 'Beras Premium',
-          currentStock: 50,
-          minimumStock: 100,
-        ),
-        const Divider(),
-        _buildStockAlertItem(
-          productName: 'Minyak Goreng',
-          currentStock: 20,
-          minimumStock: 75,
-        ),
-        const Divider(),
-        _buildStockAlertItem(
-          productName: 'Gula Pasir',
-          currentStock: 35,
-          minimumStock: 80,
-        ),
+        if (lowStockProducts.isEmpty)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Text(
+                'No low stock alerts at the moment',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+          )
+        else
+          for (int i = 0; i < lowStockProducts.length; i++) ...[
+            _buildStockAlertItem(
+              productName: lowStockProducts[i]['name'],
+              currentStock: lowStockProducts[i]['currentStock'],
+              minimumStock: lowStockProducts[i]['minimumStock'],
+            ),
+            if (i < lowStockProducts.length - 1) const Divider(),
+          ],
         const SizedBox(height: 16),
         Center(
           child: TextButton(
             onPressed: () {
-              // TODO: Navigate to full stock report
+              Navigator.pushNamed(context, '/inventory');
             },
             child: const Text('View Full Stock Report'),
           ),

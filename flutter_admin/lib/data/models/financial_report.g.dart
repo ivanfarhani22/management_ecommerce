@@ -8,65 +8,30 @@ part of 'financial_report.dart';
 
 FinancialReport _$FinancialReportFromJson(Map<String, dynamic> json) =>
     FinancialReport(
-      id: (json['id'] as num?)?.toInt(),
-      startDate: DateTime.parse(json['startDate'] as String),
-      endDate: DateTime.parse(json['endDate'] as String),
-      totalRevenue: (json['totalRevenue'] as num).toDouble(),
-      totalExpenses: (json['totalExpenses'] as num).toDouble(),
-      netProfit: (json['netProfit'] as num).toDouble(),
-      revenueBreakdown:
-          (json['revenueBreakdown'] as List<dynamic>?)
-              ?.map((e) => RevenueBreakdown.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const [],
-      expenseBreakdown:
-          (json['expenseBreakdown'] as List<dynamic>?)
-              ?.map((e) => ExpenseBreakdown.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const [],
-      createdAt:
-          json['createdAt'] == null
-              ? null
-              : DateTime.parse(json['createdAt'] as String),
-    );
-
-Map<String, dynamic> _$FinancialReportToJson(FinancialReport instance) =>
-    <String, dynamic>{
-      'id': instance.id,
-      'startDate': instance.startDate.toIso8601String(),
-      'endDate': instance.endDate.toIso8601String(),
-      'totalRevenue': instance.totalRevenue,
-      'totalExpenses': instance.totalExpenses,
-      'netProfit': instance.netProfit,
-      'revenueBreakdown': instance.revenueBreakdown,
-      'expenseBreakdown': instance.expenseBreakdown,
-      'createdAt': instance.createdAt?.toIso8601String(),
-    };
-
-RevenueBreakdown _$RevenueBreakdownFromJson(Map<String, dynamic> json) =>
-    RevenueBreakdown(
-      category: json['category'] as String,
+      id: json['id'] as int?,
       amount: (json['amount'] as num).toDouble(),
-      percentage: (json['percentage'] as num).toDouble(),
-    );
-
-Map<String, dynamic> _$RevenueBreakdownToJson(RevenueBreakdown instance) =>
-    <String, dynamic>{
-      'category': instance.category,
-      'amount': instance.amount,
-      'percentage': instance.percentage,
-    };
-
-ExpenseBreakdown _$ExpenseBreakdownFromJson(Map<String, dynamic> json) =>
-    ExpenseBreakdown(
+      title: json['title'] as String,
       category: json['category'] as String,
-      amount: (json['amount'] as num).toDouble(),
-      percentage: (json['percentage'] as num).toDouble(),
+      date: DateTime.parse(json['date'] as String),
+      description: json['description'] as String?,
+      isExpense: json['isExpense'] as bool,
     );
 
-Map<String, dynamic> _$ExpenseBreakdownToJson(ExpenseBreakdown instance) =>
-    <String, dynamic>{
-      'category': instance.category,
-      'amount': instance.amount,
-      'percentage': instance.percentage,
-    };
+Map<String, dynamic> _$FinancialReportToJson(FinancialReport instance) {
+  final val = <String, dynamic>{};
+
+  void writeNotNull(String key, dynamic value) {
+    if (value != null) {
+      val[key] = value;
+    }
+  }
+
+  writeNotNull('id', instance.id);
+  val['amount'] = instance.amount;
+  val['title'] = instance.title;
+  val['category'] = instance.category;
+  val['date'] = instance.date.toIso8601String();
+  writeNotNull('description', instance.description);
+  val['isExpense'] = instance.isExpense;
+  return val;
+}

@@ -17,13 +17,15 @@ class AppConfig {
       if (Platform.isAndroid) {
         // Your specific IP address for Android device testing
         return 'http://192.168.9.8:8000/api';
+        //return 'http://54.251.64.31/api';
       } else {
         // Windows, macOS, Linux, etc.
         return 'http://127.0.0.1:8000/api';
+        //return 'http://54.251.64.31/api';
       }
     } else {
       // Production environment
-      return 'https://your-production-domain.com/api';  // Replace with your actual production API
+      return 'http://54.251.64.31/api';  // Replace with your actual production API
     }
   }
   
@@ -33,25 +35,26 @@ class AppConfig {
       if (Platform.isAndroid) {
         // Android emulator needs 10.0.2.2 to access host's localhost
         // or use your specific IP for physical devices
-
         return 'http://192.168.9.8:8000/storage';
-      
+        //return 'http://54.251.64.31/storage';
       } else {
         // Windows, macOS, Linux, etc.
         return 'http://127.0.0.1:8000/storage';
+        //return 'http://54.251.64.31/storage';
       }
     } else {
       // Production environment
-      return 'https://your-production-domain.com/storage';
+      return 'http://54.251.64.31/storage';
     }
   }
   
   // Try multiple storage URLs if the primary one fails
   static List<String> get alternativeStorageUrls {
     return [
-      'http://127.0.0.1:8000/storage',     // localhost
-      'http://10.0.2.2:8000/storage',      // Android emulator localhost
-      'http://192.168.9.8:8000/storage',   // Specific IP address
+      // 'http://127.0.0.1:8000/storage',     // localhost
+      // 'http://10.0.2.2:8000/storage',      // Android emulator localhost
+      'http://192.168.9.8:8000/storage', // Specific development IP
+      //'http://54.251.64.31/storage',        // Production IP
     ];
   }
   
@@ -103,21 +106,11 @@ class AppConfig {
 
   // Environment-specific configurations
   Map<String, dynamic> getEnvironmentConfig() {
-    switch (environment) {
-      case 'development':
-        return {
-          'apiUrl': baseApiUrl,
-          'storageUrl': storageBaseUrl,
-          'logLevel': 'debug',
-        };
-      case 'production':
-        return {
-          'apiUrl': baseApiUrl,
-          'storageUrl': storageBaseUrl,
-          'logLevel': 'error',
-        };
-      default:
-        return {};
-    }
+    // Selalu mengembalikan konfigurasi untuk URL yang ditentukan
+    return {
+      'apiUrl': baseApiUrl,
+      'storageUrl': storageBaseUrl,
+      'logLevel': kDebugMode ? 'debug' : 'error',
+    };
   }
 }
