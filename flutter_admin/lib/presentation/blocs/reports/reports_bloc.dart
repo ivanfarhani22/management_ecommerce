@@ -65,37 +65,35 @@ class ReportsBloc extends Bloc<ReportsEvent, ReportsState> {
     // Filter by date range
     if (event.startDate != null && event.endDate != null) {
       filtered = filtered.where((report) => 
-        // Cek apakah report overlap dengan range tanggal yang dipilih
-        (report.startDate.isAtSameMomentAs(event.startDate!) || 
-         report.startDate.isAfter(event.startDate!)) &&
-        (report.endDate.isAtSameMomentAs(event.endDate!) || 
-         report.endDate.isBefore(event.endDate!))
+        report.date.isAfter(event.startDate!.subtract(const Duration(days: 1))) &&
+        report.date.isBefore(event.endDate!.add(const Duration(days: 1)))
       ).toList();
     }
 
-    // Filter by revenue range
-    if (event.minRevenue != null) {
+    // Filter by amount range
+    if (event.minAmount != null) {
       filtered = filtered.where((report) => 
-        report.totalRevenue >= event.minRevenue!
+        report.amount >= event.minAmount!
       ).toList();
     }
 
-    if (event.maxRevenue != null) {
+    if (event.maxAmount != null) {
       filtered = filtered.where((report) => 
-        report.totalRevenue <= event.maxRevenue!
+        report.amount <= event.maxAmount!
       ).toList();
     }
 
-    // Filter by expense range
-    if (event.minExpenses != null) {
+    // Filter by category
+    if (event.category != null && event.category!.isNotEmpty) {
       filtered = filtered.where((report) => 
-        report.totalExpenses >= event.minExpenses!
+        report.category == event.category
       ).toList();
     }
 
-    if (event.maxExpenses != null) {
+    // Filter by transaction type (expense/income)
+    if (event.isExpense != null) {
       filtered = filtered.where((report) => 
-        report.totalExpenses <= event.maxExpenses!
+        report.isExpense == event.isExpense
       ).toList();
     }
 

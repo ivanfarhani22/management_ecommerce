@@ -13,17 +13,19 @@ class FinanceRepository {
 
   Future<List<FinancialReport>> getAllFinances() async {
     try {
-      // Fetch from API
-      final apiFinances = await financeApi.getAllFinances();
-      
-      // Cache finances in local database
+      final List<Map<String, dynamic>> apiFinancesData =
+          await financeApi.getAllFinances();
+
+      final List<FinancialReport> apiFinances = apiFinancesData
+          .map((data) => FinancialReport.fromJson(data))
+          .toList();
+
       for (var finance in apiFinances) {
         await databaseHelper.insert('financial_reports', finance.toJson());
       }
-      
+
       return apiFinances;
     } catch (e) {
-      // Fallback to local database
       final localFinances = await databaseHelper.query('financial_reports');
       return localFinances.map((json) => FinancialReport.fromJson(json)).toList();
     }
@@ -31,31 +33,35 @@ class FinanceRepository {
 
   Future<FinancialReport> getFinanceById(int financeId) async {
     try {
-      // Try to fetch from API first
-      return await financeApi.getFinanceById(financeId);
+      final Map<String, dynamic> financeData =
+          await financeApi.getFinanceById(financeId);
+
+      return FinancialReport.fromJson(financeData);
     } catch (e) {
-      // Fallback to local database
       final localFinance = await databaseHelper.query(
-        'financial_reports', 
-        where: 'id = ?', 
-        whereArgs: [financeId]
+        'financial_reports',
+        where: 'id = ?',
+        whereArgs: [financeId],
       );
-      
+
       if (localFinance.isNotEmpty) {
         return FinancialReport.fromJson(localFinance.first);
       }
-      
+
       rethrow;
     }
   }
 
   Future<FinancialReport> createFinance(FinancialReport finance) async {
     try {
-      final createdFinance = await financeApi.createFinance(finance);
-      
-      // Cache in local database
-      await databaseHelper.insert('financial_reports', createdFinance.toJson());
-      
+      final Map<String, dynamic> createdFinanceData =
+          await financeApi.createFinance(finance.toJson());
+
+      final createdFinance = FinancialReport.fromJson(createdFinanceData);
+
+      await databaseHelper.insert(
+          'financial_reports', createdFinance.toJson());
+
       return createdFinance;
     } catch (e) {
       rethrow;
@@ -64,16 +70,18 @@ class FinanceRepository {
 
   Future<FinancialReport> updateFinance(FinancialReport finance) async {
     try {
-      final updatedFinance = await financeApi.updateFinance(finance);
-      
-      // Update in local database
+      final Map<String, dynamic> updatedFinanceData =
+          await financeApi.updateFinance(finance.toJson());
+
+      final updatedFinance = FinancialReport.fromJson(updatedFinanceData);
+
       await databaseHelper.update(
-        'financial_reports', 
+        'financial_reports',
         updatedFinance.toJson(),
         where: 'id = ?',
-        whereArgs: [updatedFinance.id]
+        whereArgs: [updatedFinance.id],
       );
-      
+
       return updatedFinance;
     } catch (e) {
       rethrow;
@@ -83,12 +91,11 @@ class FinanceRepository {
   Future<void> deleteFinance(int financeId) async {
     try {
       await financeApi.deleteFinance(financeId);
-      
-      // Remove from local database
+
       await databaseHelper.delete(
-        'financial_reports', 
-        where: 'id = ?', 
-        whereArgs: [financeId]
+        'financial_reports',
+        where: 'id = ?',
+        whereArgs: [financeId],
       );
     } catch (e) {
       rethrow;
@@ -97,15 +104,22 @@ class FinanceRepository {
 
   Future<List<FinancialReport>> getFinancesByCategory(String category) async {
     try {
-      return await financeApi.getFinancesByCategory(category);
+      final List<Map<String, dynamic>> financeDataList =
+          await financeApi.getFinancesByCategory(category);
+
+      return financeDataList
+          .map((data) => FinancialReport.fromJson(data))
+          .toList();
     } catch (e) {
-      // Fallback to local database query
       final localFinances = await databaseHelper.query(
-        'financial_reports', 
-        where: 'category = ?', 
-        whereArgs: [category]
+        'financial_reports',
+        where: 'category = ?',
+        whereArgs: [category],
       );
-      return localFinances.map((json) => FinancialReport.fromJson(json)).toList();
+
+      return localFinances
+          .map((json) => FinancialReport.fromJson(json))
+          .toList();
     }
   }
 
@@ -113,8 +127,7 @@ class FinanceRepository {
     try {
       return await financeApi.getFinanceSummary();
     } catch (e) {
-      // If API fails, you might want to compute summary from local data
-      // This is a placeholder and would need to be implemented based on your specific requirements
+      // Implement summary calculation from local if needed
       rethrow;
     }
   }

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 class SalesChart extends StatelessWidget {
-  const SalesChart({super.key});
+  final List<Map<String, dynamic>> salesData;
+
+  const SalesChart({super.key, required this.salesData});
 
   @override
   Widget build(BuildContext context) {
@@ -65,14 +67,7 @@ class SalesChart extends StatelessWidget {
               borderData: FlBorderData(show: false),
               lineBarsData: [
                 LineChartBarData(
-                  spots: [
-                    FlSpot(0, 3),
-                    FlSpot(1, 5),
-                    FlSpot(2, 4),
-                    FlSpot(3, 7),
-                    FlSpot(4, 6),
-                    FlSpot(5, 8),
-                  ],
+                  spots: _getSpots(),
                   isCurved: true,
                   color: Colors.blue,
                   barWidth: 4,
@@ -87,5 +82,27 @@ class SalesChart extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  List<FlSpot> _getSpots() {
+    List<FlSpot> spots = [];
+    
+    // Convert sales data to chart spots
+    for (var item in salesData) {
+      final month = item['month'] as int;
+      // Convert to thousands for readability
+      final salesInK = (item['sales'] as double) / 1000;
+      spots.add(FlSpot(month.toDouble(), salesInK));
+    }
+    
+    // If no data, show empty chart
+    if (spots.isEmpty) {
+      spots = [
+        const FlSpot(0, 0),
+        const FlSpot(5, 0),
+      ];
+    }
+    
+    return spots;
   }
 }
