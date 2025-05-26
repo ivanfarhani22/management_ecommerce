@@ -166,7 +166,7 @@ class _OrderFilterState extends State<OrderFilter> {
                   onPressed: _resetFilter,
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    side: const BorderSide(color: Colors.blue),
+                    side: const BorderSide(color: Color.fromARGB(255, 0, 73, 7)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -174,7 +174,7 @@ class _OrderFilterState extends State<OrderFilter> {
                   child: const Text(
                     'Reset Filter',
                     style: TextStyle(
-                      color: Colors.blue,
+                      color: Color.fromARGB(255, 0, 73, 7),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -189,7 +189,7 @@ class _OrderFilterState extends State<OrderFilter> {
                   },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    backgroundColor: Colors.blue,
+                    backgroundColor: Color.fromARGB(255, 0, 73, 7),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),

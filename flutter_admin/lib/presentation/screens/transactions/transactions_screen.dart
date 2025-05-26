@@ -266,117 +266,123 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-       appBar: CustomAppBar(
-        title: 'Transactions',
-        showBackButton: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: _showFilterDialog,
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: CustomAppBar(
+      title: 'Transactions',
+      showBackButton: false,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.filter_list),
+          color: const Color.fromARGB(255, 255, 255, 255),
+          onPressed: _showFilterDialog,
+        ),
+        // Hapus IconButton add karena sudah dipindah ke FAB
+      ],
+    ),
+    body: RefreshIndicator(
+      onRefresh: _loadTransactions,
+      child: _buildBody(),
+    ),
+    bottomNavigationBar: _buildBottomNavigation(),
+    // Tambahkan FloatingActionButton di pojok kanan bawah
+    floatingActionButton: FloatingActionButton(
+      onPressed: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AddOfflineTransactionScreen(),
           ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AddOfflineTransactionScreen(),
-                ),
-              );
-              
-              if (result == true && mounted) {
-                _loadTransactions();
-              }
-            },
-          ),
-        ],
+        );
+        
+        if (result == true && mounted) {
+          _loadTransactions();
+        }
+      },
+      backgroundColor: Theme.of(context).primaryColor,
+      foregroundColor: Colors.white,
+      child: const Icon(Icons.add),
+    ),
+    floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+  );
+}
+
+Widget _buildBody() {
+  if (_isLoading) {
+    return const Center(child: CircularProgressIndicator());
+  }
+  
+  if (_errorMessage != null) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Error: $_errorMessage', 
+              style: const TextStyle(color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadTransactions,
+              child: const Text('Try Again'),
+            ),
+          ],
+        ),
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadTransactions,
-        child: _buildBody(),
-      ),
-      bottomNavigationBar: _buildBottomNavigation(),
     );
   }
   
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    
-    if (_errorMessage != null) {
-      return Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Error: $_errorMessage', 
-                style: const TextStyle(color: Colors.red),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _loadTransactions,
-                child: const Text('Try Again'),
-              ),
-            ],
-          ),
+  if (_transactions.isEmpty) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('No transactions found'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadTransactions,
+              child: const Text('Refresh'),
+            ),
+          ],
         ),
-      );
-    }
-    
-    if (_transactions.isEmpty) {
-      return Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('No transactions found'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _loadTransactions,
-                child: const Text('Refresh'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    
-    return ListView.builder(
-      padding: const EdgeInsets.all(8),
-      itemCount: _transactions.length,
-      itemBuilder: (context, index) {
-        final transaction = _transactions[index];
-        return GestureDetector(
-          onTap: () async {
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => TransactionDetailsScreen(
-                  transactionId: transaction.id.toString(),
-                ),
-              ),
-            );
-            
-            if (result == true && mounted) {
-              _loadTransactions();
-            }
-          },
-          child: TransactionCard(
-            transactionId: transaction.id.toString(),
-            type: transaction.paymentMethod,
-            amount: transaction.amount,
-            date: transaction.transactionDate ?? DateTime.now(),
-            status: transaction.status,
-          ),
-        );
-      },
+      ),
     );
   }
+  
+  return ListView.builder(
+    padding: const EdgeInsets.all(8),
+    itemCount: _transactions.length,
+    itemBuilder: (context, index) {
+      final transaction = _transactions[index];
+      return GestureDetector(
+        onTap: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TransactionDetailsScreen(
+                transactionId: transaction.id.toString(),
+              ),
+            ),
+          );
+          
+          if (result == true && mounted) {
+            _loadTransactions();
+          }
+        },
+        child: TransactionCard(
+          transactionId: transaction.id.toString(),
+          type: transaction.paymentMethod,
+          amount: transaction.amount,
+          date: transaction.transactionDate ?? DateTime.now(),
+          status: transaction.status,
+        ),
+      );
+    },
+  );
+}
 }

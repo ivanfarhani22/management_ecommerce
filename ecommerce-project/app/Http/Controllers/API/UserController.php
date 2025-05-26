@@ -17,7 +17,40 @@ class UserController extends Controller
     public function __construct(AuthService $authService)
     {
         $this->authService = $authService;
-        // Remove middleware from constructor - it will be handled in routes
+    }
+
+    /**
+     * Get list of all users (public method)
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function index(): JsonResponse
+    {
+        try {
+            $users = User::all(['id', 'name', 'email'])->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $users
+            ], 200, [
+                'Content-Type' => 'application/json'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching all users', [
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch users'
+            ], 500);
+        }
     }
 
     /**
@@ -74,8 +107,10 @@ class UserController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
-                    // Add other user fields you need, but exclude sensitive data
+                    'phone' => $user->phone
                 ]
+            ], 200, [
+                'Content-Type' => 'application/json'
             ]);
         } catch (\Exception $e) {
             Log::error('Error fetching user', [
@@ -98,25 +133,20 @@ class UserController extends Controller
      */
     public function getMultipleUsers(Request $request): JsonResponse
     {
-        // Check both JSON and form data inputs
         $ids = $request->input('ids', []);
         
-        // Add debug logging
         Log::info('Batch user request received', [
             'input' => $request->all(),
             'ids' => $ids
         ]);
         
-        // Handle different input formats
         if (is_string($ids)) {
             try {
                 $ids = json_decode($ids, true);
                 if (json_last_error() !== JSON_ERROR_NONE) {
-                    // If not valid JSON, try comma separated
                     $ids = explode(',', $ids);
                 }
             } catch (\Exception $e) {
-                // If not valid JSON, try comma separated
                 $ids = explode(',', $ids);
             }
         }
@@ -129,15 +159,11 @@ class UserController extends Controller
         }
         
         try {
-            // Convert all IDs to integers
             $ids = array_map('intval', (array)$ids);
             
-            Log::info('Fetching users with IDs', ['ids' => $ids]);
-            
-            $users = User::whereIn('id', $ids)->get();
+            $users = User::whereIn('id', $ids)->get(['id', 'name', 'email']);
             
             if ($users->isEmpty()) {
-                Log::warning('No users found for the provided IDs', ['ids' => $ids]);
                 return response()->json([
                     'success' => true,
                     'data' => []
@@ -148,7 +174,7 @@ class UserController extends Controller
                 return [
                     'id' => $user->id,
                     'name' => $user->name,
-                    // Add other fields as needed
+                    'email' => $user->email,
                 ];
             });
             

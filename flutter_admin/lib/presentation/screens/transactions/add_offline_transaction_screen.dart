@@ -120,6 +120,11 @@ class _AddOfflineTransactionScreenState extends State<AddOfflineTransactionScree
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          color: const Color.fromARGB(255, 255, 255, 255),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text('Add Offline Transaction'),
       ),
       body: _isLoading

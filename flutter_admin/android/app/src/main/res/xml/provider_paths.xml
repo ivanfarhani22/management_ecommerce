@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Path untuk external files directory -->
+    <external-files-path 
+        name="external_files" 
+        path="." />
+    
+    <!-- Path untuk external cache directory -->
+    <external-cache-path 
+        name="external_cache" 
+        path="." />
+    
+    <!-- Path untuk internal cache directory -->
+    <cache-path 
+        name="cache" 
+        path="." />
+    
+    <!-- Path untuk internal files directory -->
+    <files-path 
+        name="files" 
+        path="." />
+    
+    <!-- Path untuk Pictures directory -->
+    <external-files-path 
+        name="pictures" 
+        path="Pictures" />
+    
+    <!-- Path untuk temporary images -->
+    <cache-path 
+        name="temp_images" 
+        path="temp_images" />
+        
+    <!-- Media path untuk Android scoped storage -->
+    <external-media-path 
+        name="external_media" 
+        path="." />
+</paths>

@@ -15,7 +15,7 @@ class RegisterController extends Controller
         return view('auth.register');
     }
 
-    public function register(Request $request)
+    public function register(RegisterRequest $request)
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
@@ -37,6 +37,6 @@ class RegisterController extends Controller
 
         auth()->login($user);
 
-        return redirect()->route('home.index')->with('success', 'Registration successful');
+        return redirect()->route('home')->with('success', 'Registration successful');
     }
 }

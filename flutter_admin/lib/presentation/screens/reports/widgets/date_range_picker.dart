@@ -60,6 +60,17 @@ class _DateRangePickerState extends State<DateRangePicker> {
     }
   }
 
+  void _clearDateRange() {
+    setState(() {
+      _startDate = null;
+      _endDate = null;
+    });
+    // Call with current date range to notify parent
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    widget.onDateRangeSelected(startOfMonth, now);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -83,9 +94,19 @@ class _DateRangePickerState extends State<DateRangePicker> {
                   child: Text(
                     _startDate != null && _endDate != null
                         ? '${_dateFormat.format(_startDate!)} - ${_dateFormat.format(_endDate!)}'
-                        : 'Select date range',
+                        : 'Select date range (All data)',
+                    style: TextStyle(
+                      color: _startDate != null ? Colors.black : Colors.grey[600],
+                    ),
                   ),
                 ),
+                if (_startDate != null && _endDate != null) ...[
+                  TextButton(
+                    onPressed: _clearDateRange,
+                    child: const Text('Clear'),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 ElevatedButton(
                   onPressed: () => _selectDateRange(context),
                   child: const Text('Select'),

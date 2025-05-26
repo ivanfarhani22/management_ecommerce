@@ -51,13 +51,15 @@ class AuthApi {
   Future<User> register({
     required String name, 
     required String email, 
-    required String password
+    required String password,
+    String? passwordConfirmation,  // Add optional password confirmation
   }) async {
     try {
       final response = await apiClient.post('/v1/register', body: {
         'name': name,
         'email': email,
         'password': password,
+        'password_confirmation': passwordConfirmation ?? password,  // Use provided confirmation or same password
         'app_version': AppConfig.appVersion,  // Include app version
       });
 

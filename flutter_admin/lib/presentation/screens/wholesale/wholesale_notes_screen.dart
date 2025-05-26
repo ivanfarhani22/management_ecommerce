@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'dart:convert';
 import 'add_wholesale_note_screen.dart';
 import 'capture_receipt_screen.dart';
@@ -243,130 +244,442 @@ class _WholesaleNotesScreenState extends State<WholesaleNotesScreen> {
     await _loadWholesaleNotes();
   }
 
-  void _showNoteDetails(Map<String, dynamic> note) {
-    // Debug print untuk melihat struktur data
-    _debugPrintNoteStructure(note);
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Detail Catatan Grosir'),
-        content: SingleChildScrollView(
+void _showNoteDetails(Map<String, dynamic> note) {
+  // Debug print untuk melihat struktur data
+  _debugPrintNoteStructure(note);
+  
+  showDialog(
+    context: context,
+    barrierDismissible: true,
+    builder: (context) {
+      final theme = Theme.of(context);
+      final colorScheme = theme.colorScheme;
+      
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(20),
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+            maxWidth: MediaQuery.of(context).size.width * 0.9,
+          ),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildDetailRow('Pelanggan', note['customerName'] ?? 'Unknown'),
-              SizedBox(height: 8),
-              _buildDetailRow('Tanggal', _formatDate(note['date'])),
-              SizedBox(height: 8),
-              _buildDetailRow('Total', 'Rp ${_formatCurrency(note['totalAmount'] ?? 0.0)}'),
-              SizedBox(height: 16),
-              Text(
-                'Daftar Produk:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              SizedBox(height: 8),
-              // Perbaikan bagian items
-              if (note['items'] != null) ...[
-                ...() {
-                  final validItems = _validateAndCleanItems(note['items']);
-                  
-                  if (validItems.isEmpty) {
-                    return [
-                      Card(
-                        color: Colors.orange[50],
-                        child: Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Row(
-                            children: [
-                              Icon(Icons.warning, color: Colors.orange),
-                              SizedBox(width: 8),
-                              Text(
-                                'Tidak ada produk valid',
-                                style: TextStyle(color: Colors.orange[800]),
-                              ),
-                            ],
-                          ),
+              // Header
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      colorScheme.primaryContainer,
+                      colorScheme.primaryContainer.withOpacity(0.8),
+                    ],
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.receipt_long,
+                        color: const Color.fromARGB(255, 255, 255, 255),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        'Detail Catatan Grosir',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onPrimaryContainer,
                         ),
                       ),
-                    ];
-                  }
-                  
-                  return validItems.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final item = entry.value;
-                    
-                    return Card(
-                      color: Colors.grey[50],
-                      margin: EdgeInsets.only(bottom: 8),
-                      child: Padding(
-                        padding: EdgeInsets.all(12),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white.withOpacity(0.2),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Content
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Customer Info Card
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceVariant.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: colorScheme.outline.withOpacity(0.2),
+                          ),
+                        ),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '${index + 1}. ${item['name']}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
+                            _buildElegantDetailRow(
+                              context,
+                              Icons.storefront_outlined,
+                              'Toko',
+                              note['customerName'] ?? 'Unknown',
                             ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Qty: ${item['quantity']}',
-                              style: TextStyle(fontSize: 13),
+                            const SizedBox(height: 16),
+                            _buildElegantDetailRow(
+                              context,
+                              Icons.calendar_today_outlined,
+                              'Tanggal',
+                              _formatDate(note['date']),
                             ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Harga: Rp ${_formatCurrency(item['price'])}',
-                              style: TextStyle(fontSize: 13),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Subtotal: Rp ${_formatCurrency((item['quantity'] as int) * (item['price'] as double))}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: Theme.of(context).primaryColor,
-                              ),
+                            const SizedBox(height: 16),
+                            _buildElegantDetailRow(
+                              context,
+                              Icons.account_balance_wallet_outlined,
+                              'Total Pembayaran',
+                              'Rp ${_formatCurrency(note['totalAmount'] ?? 0.0)}',
+                              isTotal: true,
                             ),
                           ],
                         ),
                       ),
-                    );
-                  }).toList();
-                }(),
-              ] else ...[
-                Card(
-                  color: Colors.orange[50],
-                  child: Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Icon(Icons.warning, color: Colors.orange),
-                        SizedBox(width: 8),
-                        Text(
-                          'Tidak ada produk atau data tidak valid',
-                          style: TextStyle(color: Colors.orange[800]),
-                        ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Products Section
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.inventory_2_outlined,
+                              color: colorScheme.primary,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Daftar Produk',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Products List
+                      if (note['items'] != null) ...[
+                        ...() {
+                          final validItems = _validateAndCleanItems(note['items']);
+                          
+                          if (validItems.isEmpty) {
+                            return [_buildEmptyState(context, 'Tidak ada produk valid')];
+                          }
+                          
+                          return validItems.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final item = entry.value;
+                            
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: colorScheme.surface,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: colorScheme.outline.withOpacity(0.2),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: colorScheme.shadow.withOpacity(0.05),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 24,
+                                        height: 24,
+                                        decoration: BoxDecoration(
+                                          color: colorScheme.primary,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            '${index + 1}',
+                                            style: TextStyle(
+                                              color: colorScheme.onPrimary,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          item['name'],
+                                          style: theme.textTheme.titleSmall?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: colorScheme.onSurface,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildProductDetail(
+                                          context,
+                                          'Kuantitas',
+                                          '${item['quantity']}',
+                                          Icons.straighten,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: _buildProductDetail(
+                                          context,
+                                          'Harga Satuan',
+                                          'Rp ${_formatCurrency(item['price'])}',
+                                          Icons.attach_money,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Subtotal',
+                                          style: theme.textTheme.labelMedium?.copyWith(
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.green[700],
+                                          ),
+                                        ),
+                                        Text(
+                                          'Rp ${_formatCurrency((item['quantity'] as int) * (item['price'] as double))}',
+                                          style: theme.textTheme.titleSmall?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.green[700],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList();
+                        }(),
+                      ] else ...[
+                        _buildEmptyState(context, 'Tidak ada produk atau data tidak valid'),
                       ],
-                    ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Tutup'),
+      );
+    },
+  );
+}
+
+Widget _buildElegantDetailRow(
+  BuildContext context,
+  IconData icon,
+  String label,
+  String value, {
+  bool isTotal = false,
+}) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  
+  return Row(
+    children: [
+      Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isTotal 
+              ? Colors.green.withOpacity(0.1)
+              : colorScheme.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: isTotal ? Colors.green[700] : colorScheme.primary,
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: colorScheme.onSurface.withOpacity(0.7),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: isTotal ? Colors.green[700] : colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _buildProductDetail(
+  BuildContext context,
+  String label,
+  String value,
+  IconData icon,
+) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: colorScheme.onSurface.withOpacity(0.6),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurface.withOpacity(0.7),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
-    );
-  }
+      const SizedBox(height: 4),
+      Text(
+        value,
+        style: theme.textTheme.bodySmall?.copyWith(
+          fontWeight: FontWeight.bold,
+          color: colorScheme.onSurface,
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _buildEmptyState(BuildContext context, String message) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  
+  return Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Colors.orange.withOpacity(0.05),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+        color: Colors.orange.withOpacity(0.2),
+      ),
+    ),
+    child: Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.orange.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.warning_amber_rounded,
+            color: Colors.orange[700],
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            message,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: Colors.orange[800],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildDetailRow(String label, String value) {
     return Row(
@@ -489,149 +802,166 @@ class _WholesaleNotesScreenState extends State<WholesaleNotesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return Scaffold(
-        appBar: AppBar(title: Text('Catatan Grosir')),
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
+  if (isLoading) {
     return Scaffold(
-      appBar: CustomAppBar(
-        showBackButton: false,
-        title: 'Catatan Grosir',
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            color: const Color.fromARGB(255, 255, 255, 255),
-            onPressed: _refreshData,
-          ),
-          IconButton(
-            icon: Icon(Icons.camera_alt),
-            color: const Color.fromARGB(255, 255, 255, 255),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CaptureReceiptScreen(),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.add),
-            color: const Color.fromARGB(255, 255, 255, 255),
-            onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => AddWholesaleNoteScreen(),
-                ),
-              );
-              
-              if (result != null) {
-                _addNewNote(result);
-              }
-              
-              // Refresh data setelah kembali dari halaman add
-              await _refreshData();
-            },
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _refreshData,
-        child: wholesaleNotes.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.note_add, size: 64, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text(
-                      'Belum ada catatan grosir',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    SizedBox(height: 8),
-                    Text('Tap tombol + untuk menambah catatan baru'),
-                    SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _refreshData,
-                      child: Text('Refresh'),
-                    ),
-                  ],
-                ),
-              )
-            : ListView.builder(
-                padding: EdgeInsets.all(8),
-                itemCount: wholesaleNotes.length,
-                itemBuilder: (context, index) {
-                  final note = wholesaleNotes[index];
-                  return Card(
-                    margin: EdgeInsets.symmetric(vertical: 4, horizontal: 0),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        child: Icon(Icons.receipt),
-                        backgroundColor: Theme.of(context).primaryColor,
-                        foregroundColor: Colors.white,
-                      ),
-                      title: Text(
-                        note['customerName'] ?? 'Unknown Customer',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(_formatDate(note['date'])),
-                          Text(
-                            'Rp ${_formatCurrency(note['totalAmount'] ?? 0.0)}',
-                            style: TextStyle(
-                              color: Theme.of(context).primaryColor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      trailing: PopupMenuButton(
-                        itemBuilder: (context) => [
-                          PopupMenuItem(
-                            value: 'detail',
-                            child: Row(
-                              children: [
-                                Icon(Icons.info),
-                                SizedBox(width: 8),
-                                Text('Detail'),
-                              ],
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'delete',
-                            child: Row(
-                              children: [
-                                Icon(Icons.delete, color: Colors.red),
-                                SizedBox(width: 8),
-                                Text('Hapus', style: TextStyle(color: Colors.red)),
-                              ],
-                            ),
-                          ),
-                        ],
-                        onSelected: (value) {
-                          if (value == 'detail') {
-                            _showNoteDetails(note);
-                          } else if (value == 'delete') {
-                            _deleteNote(index);
-                          }
-                        },
-                      ),
-                      onTap: () {
-                        _showNoteDetails(note);
-                      },
-                    ),
-                  );
-                },
-              ),
-      ),
-      bottomNavigationBar: _buildBottomNavigation(),
+      appBar: AppBar(title: Text('Catatan Grosir')),
+      body: Center(child: CircularProgressIndicator()),
     );
   }
+
+  return Scaffold(
+    appBar: CustomAppBar(
+      showBackButton: false,
+      title: 'Catatan Grosir',
+    ),
+    body: RefreshIndicator(
+      onRefresh: _refreshData,
+      child: wholesaleNotes.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.note_add, size: 64, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text(
+                    'Belum ada catatan grosir',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  SizedBox(height: 8),
+                  Text('Tap tombol + untuk menambah catatan baru'),
+                  SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _refreshData,
+                    child: Text('Refresh'),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: EdgeInsets.all(8),
+              itemCount: wholesaleNotes.length,
+              itemBuilder: (context, index) {
+                final note = wholesaleNotes[index];
+                return Card(
+                  margin: EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      child: Icon(Icons.receipt),
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                    ),
+                    title: Text(
+                      note['customerName'] ?? 'Unknown Customer',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_formatDate(note['date'])),
+                        Text(
+                          'Rp ${_formatCurrency(note['totalAmount'] ?? 0.0)}',
+                          style: TextStyle(
+                            color: Theme.of(context).primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    trailing: PopupMenuButton(
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'detail',
+                          child: Row(
+                            children: [
+                              Icon(Icons.info),
+                              SizedBox(width: 8),
+                              Text('Detail'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete, color: Colors.red),
+                              SizedBox(width: 8),
+                              Text('Hapus', style: TextStyle(color: Colors.red)),
+                            ],
+                          ),
+                        ),
+                      ],
+                      onSelected: (value) {
+                        if (value == 'detail') {
+                          _showNoteDetails(note);
+                        } else if (value == 'delete') {
+                          _deleteNote(index);
+                        }
+                      },
+                    ),
+                    onTap: () {
+                      _showNoteDetails(note);
+                    },
+                  ),
+                );
+              },
+            ),
+    ),
+    bottomNavigationBar: _buildBottomNavigation(),
+    // Gunakan SpeedDial dari package flutter_speed_dial
+    floatingActionButton: SpeedDial(
+      icon: Icons.add,
+      activeIcon: Icons.close,
+      backgroundColor: Theme.of(context).primaryColor,
+      foregroundColor: Colors.white,
+      activeForegroundColor: Colors.white,
+      activeBackgroundColor: Theme.of(context).primaryColor,
+      visible: true,
+      closeManually: false,
+      curve: Curves.bounceIn,
+      overlayColor: Colors.black,
+      overlayOpacity: 0.3,
+      tooltip: 'Menu',
+      heroTag: "speed-dial-hero-tag",
+      elevation: 8.0,
+      shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(15), // Atur radius sesuai keinginan
+      ),
+      children: [
+        SpeedDialChild(
+          child: Icon(Icons.add),
+          backgroundColor: Theme.of(context).primaryColor,
+          foregroundColor: Colors.white,
+          onTap: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AddWholesaleNoteScreen(),
+              ),
+            );
+            
+            if (result != null) {
+              _addNewNote(result);
+            }
+            
+            await _refreshData();
+          },
+        ),
+        SpeedDialChild(
+          child: Icon(Icons.camera_alt),
+          backgroundColor: Theme.of(context).primaryColor,
+          foregroundColor: Colors.white,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CaptureReceiptScreen(),
+              ),
+            );
+          },
+        ),
+      ],
+    ),
+    floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+  );
+}
 }

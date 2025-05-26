@@ -16,8 +16,8 @@
         <div class="bg-gray-100 rounded-lg p-4 mb-6">
             <h2 class="text-xl font-semibold mb-2">Order Details</h2>
             <p class="text-gray-700">
-                <strong>Order Number:</strong> {{ $order->order_number }}<br>
-                <strong>Date:</strong> {{ $order->created_at instanceof \DateTime ? $order->created_at->format('d M Y H:i') : date('d M Y H:i', strtotime($order->created_at)) }}
+                <strong>Order Number:</strong> {{ $order->order_number ?? 'N/A' }}<br>
+                <strong>Date:</strong> {{ $order->created_at ? $order->created_at->format('d M Y H:i') : 'N/A' }}
             </p>
         </div>
 
@@ -25,17 +25,19 @@
             <div>
                 <h3 class="font-semibold mb-2">Shipping Information</h3>
                 <p class="text-gray-700">
-                    {{ $order->shipping_name }}<br>
-                    {{ $order->shipping_address }}<br>
-                    {{ $order->shipping_city ?? '' }}{{ !empty($order->shipping_postal_code) ? ', ' . $order->shipping_postal_code : '' }}<br>
-                    {{ $order->shipping_country ?? '' }}
+                    {{ $order->shipping_name ?? 'N/A' }}<br>
+                    {{ $order->shipping_address ?? 'N/A' }}<br>
+                    @if($order->shipping_city || $order->shipping_postal_code)
+                        {{ $order->shipping_city ?? '' }}{{ $order->shipping_postal_code ? ', ' . $order->shipping_postal_code : '' }}<br>
+                    @endif
+                    {{ $order->shipping_country ?? 'N/A' }}
                 </p>
             </div>
 
             <div>
                 <h3 class="font-semibold mb-2">Payment Method</h3>
                 <p class="text-gray-700">
-                    {{ ucfirst(str_replace('_', ' ', $order->payment_method ?? 'Not specified')) }}
+                    {{ $order->payment_method ? ucfirst(str_replace('_', ' ', $order->payment_method)) : 'Not specified' }}
                 </p>
             </div>
         </div>
@@ -43,33 +45,36 @@
         <div class="bg-gray-100 rounded-lg p-4 mb-6">
             <h3 class="text-xl font-semibold mb-2">Order Summary</h3>
             <div class="space-y-2">
-                @if(isset($order->items) && count($order->items) > 0)
+                @if($order->items && $order->items->count() > 0)
                     @foreach($order->items as $item)
                         <div class="flex justify-between">
-                            <span>{{ $item->product_name }} ({{ $item->quantity }}x)</span>
-                            <span>{{ number_format($item->price * $item->quantity, 2) }} IDR</span>
+                            <span>{{ $item->product_name ?? 'Unknown Product' }} ({{ $item->quantity ?? 1 }}x)</span>
+                            <span>{{ number_format(($item->price ?? 0) * ($item->quantity ?? 1), 2) }} IDR</span>
                         </div>
                     @endforeach
                 @else
-                    <div class="text-gray-600">Order items not available</div>
+                    <div class="text-gray-600">No order items found</div>
                 @endif
-                <hr class="my-2">
-                <div class="flex justify-between font-semibold">
-                    <span>Total</span>
-                    <span>{{ number_format($order->total_amount ?? 0, 2) }} IDR</span>
-                </div>
+                
+                @if($order->items && $order->items->count() > 0)
+                    <hr class="my-2">
+                    <div class="flex justify-between font-semibold">
+                        <span>Total</span>
+                        <span>{{ number_format($order->total_amount ?? 0, 2) }} IDR</span>
+                    </div>
+                @endif
             </div>
         </div>
 
         <div class="space-x-4">
-            @if(isset($order->id))
+            @if($order->id)
                 <a href="{{ route('orders.show', $order->id) }}" 
-                   class="bg-blue-500 text-white px-6 py-3 rounded-md hover:bg-blue-600">
+                   class="bg-blue-500 text-white px-6 py-3 rounded-md hover:bg-blue-600 transition-colors">
                     View Order Details
                 </a>
             @endif
             <a href="{{ route('catalog.index') }}" 
-               class="bg-gray-200 text-gray-800 px-6 py-3 rounded-md hover:bg-gray-300">
+               class="bg-gray-200 text-gray-800 px-6 py-3 rounded-md hover:bg-gray-300 transition-colors">
                 Continue Shopping
             </a>
         </div>
@@ -79,16 +84,25 @@
 
 @push('scripts')
 <script>
-    // Send order confirmation email or perform any additional tracking
     document.addEventListener('DOMContentLoaded', function() {
-        // Example: Send order confirmation via AJAX
-        @if(isset($order->id))
-        fetch('{{ route('orders.send-confirmation', $order->id) }}', {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            }
-        });
+        @if($order->id)
+            // Send order confirmation email
+            fetch('{{ route('orders.send-confirmation', $order->id) }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    console.warn('Failed to send confirmation email');
+                }
+            })
+            .catch(error => {
+                console.warn('Error sending confirmation email:', error);
+            });
         @endif
     });
 </script>

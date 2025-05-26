@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../presentation/screens/splash_screen.dart';
 import '../presentation/screens/auth/login_screen.dart';
 import '../presentation/screens/auth/forgot_password_screen.dart';
+import '../presentation/screens/auth/register_screen.dart';
 import '../presentation/screens/dashboard/dashboard_screen.dart';
 import '../presentation/screens/inventory/inventory_screen.dart';
 import '../presentation/screens/inventory/add_product_screen.dart';
@@ -19,6 +20,7 @@ class AppRoutes {
   static const String splash = '/';
   static const String login = '/login';
   static const String forgotPassword = '/forgot-password';
+  static const String register = '/register';
   static const String dashboard = '/dashboard';
   static const String inventory = '/inventory';
   static const String addProduct = '/inventory/add-product';
@@ -38,6 +40,9 @@ class AppRoutes {
       
       case login:
         return MaterialPageRoute(builder: (_) => const LoginScreen());
+
+      case register:
+        return MaterialPageRoute(builder: (_) => const RegisterScreen());
       
       case forgotPassword:
         return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());

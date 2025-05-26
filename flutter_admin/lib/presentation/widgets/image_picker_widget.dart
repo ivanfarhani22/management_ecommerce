@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform, kIsWeb;
 
@@ -26,8 +27,104 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
   final ImagePicker _picker = ImagePicker();
   File? _selectedImage;
 
+  Future<bool> _requestPermission(Permission permission) async {
+    if (kIsWeb) return true; // Web tidak memerlukan permission
+    
+    var status = await permission.status;
+    
+    if (status.isGranted) {
+      return true;
+    }
+    
+    if (status.isDenied) {
+      status = await permission.request();
+      return status.isGranted;
+    }
+    
+    if (status.isPermanentlyDenied) {
+      // Tampilkan dialog untuk membuka settings
+      _showPermissionDialog(permission);
+      return false;
+    }
+    
+    return false;
+  }
+
+  void _showPermissionDialog(Permission permission) {
+    String permissionName = permission == Permission.camera ? 'Kamera' : 'Penyimpanan';
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Izin $permissionName Diperlukan'),
+          content: Text(
+            'Aplikasi memerlukan akses $permissionName untuk mengambil foto. '
+            'Silakan aktifkan izin di pengaturan aplikasi.',
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: const Text('Buka Pengaturan'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                openAppSettings();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showPermissionDeniedSnackBar(String permissionName) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Izin $permissionName diperlukan untuk menggunakan fitur ini'),
+        backgroundColor: Colors.orange,
+        action: SnackBarAction(
+          label: 'Pengaturan',
+          onPressed: () => openAppSettings(),
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickImage(ImageSource source) async {
     try {
+      // Request permission berdasarkan source
+      bool hasPermission = false;
+      
+      if (source == ImageSource.camera) {
+        hasPermission = await _requestPermission(Permission.camera);
+        if (!hasPermission) {
+          _showPermissionDeniedSnackBar('kamera');
+          return;
+        }
+      } else {
+        // Untuk gallery, cek permission storage
+        if (Platform.isAndroid) {
+          // Android 13+ menggunakan permission yang berbeda
+          if (await Permission.photos.status.isDenied) {
+            hasPermission = await _requestPermission(Permission.photos);
+          } else {
+            hasPermission = await _requestPermission(Permission.storage);
+          }
+        } else if (Platform.isIOS) {
+          hasPermission = await _requestPermission(Permission.photos);
+        } else {
+          hasPermission = true; // Platform lain
+        }
+        
+        if (!hasPermission) {
+          _showPermissionDeniedSnackBar('penyimpanan');
+          return;
+        }
+      }
+
       final XFile? picked = await _picker.pickImage(
         source: source,
         maxWidth: 1000,
@@ -61,9 +158,18 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
       }
     } catch (e) {
       debugPrint('Error picking image: $e');
+      String errorMessage = 'Error saat memilih gambar. Silakan coba lagi.';
+      
+      // Handle specific errors
+      if (e.toString().contains('camera_access_denied')) {
+        errorMessage = 'Akses kamera ditolak. Silakan aktifkan izin kamera di pengaturan.';
+      } else if (e.toString().contains('photo_access_denied')) {
+        errorMessage = 'Akses galeri ditolak. Silakan aktifkan izin penyimpanan di pengaturan.';
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error saat memilih gambar. Silakan coba lagi.'),
+        SnackBar(
+          content: Text(errorMessage),
           backgroundColor: Colors.red,
         ),
       );
@@ -71,37 +177,57 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
   }
 
   Future<File?> _cropImage(File imageFile) async {
-  try {
-    final croppedFile = await ImageCropper().cropImage(
-      sourcePath: imageFile.path,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Image',
-          toolbarColor: Theme.of(context).primaryColor,
-          toolbarWidgetColor: Colors.white,
-          initAspectRatio: CropAspectRatioPreset.original,
-          lockAspectRatio: false,
-        ),
-        IOSUiSettings(
-          title: 'Crop Image',
-        ),
-      ],
-    );
+    try {
+      final croppedFile = await ImageCropper().cropImage(
+        sourcePath: imageFile.path,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Image',
+            toolbarColor: Theme.of(context).primaryColor,
+            toolbarWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.original,
+            lockAspectRatio: false,
+          ),
+          IOSUiSettings(
+            title: 'Crop Image',
+          ),
+        ],
+      );
 
-    if (croppedFile != null) {
-      return File(croppedFile.path);
+      if (croppedFile != null) {
+        return File(croppedFile.path);
+      }
+    } catch (e) {
+      debugPrint('Error cropping image: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error saat memotong gambar. Silakan coba lagi.'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
-  } catch (e) {
-    debugPrint('Error cropping image: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Error saat memotong gambar. Silakan coba lagi.'),
-        backgroundColor: Colors.red,
-      ),
-    );
+    return null;
   }
-  return null;
-}
+
+  // Method untuk check permission status (optional, untuk debugging)
+  Future<void> _checkPermissionStatus() async {
+    if (kIsWeb) return;
+    
+    final cameraStatus = await Permission.camera.status;
+    final storageStatus = await Permission.storage.status;
+    final photosStatus = await Permission.photos.status;
+    
+    debugPrint('Camera permission: ${cameraStatus.name}');
+    debugPrint('Storage permission: ${storageStatus.name}');
+    debugPrint('Photos permission: ${photosStatus.name}');
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Uncomment untuk debug permission status
+    // _checkPermissionStatus();
+  }
 
   @override
   Widget build(BuildContext context) {

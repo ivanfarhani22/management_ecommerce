@@ -3,107 +3,216 @@
 @endsection
 
 @section('content')
-<div class="grid md:grid-cols-12 gap-6">
-    <!-- Sidebar Profil -->
-    <div class="md:col-span-3 bg-white shadow-lg rounded-lg p-6">
-        <div class="flex flex-col items-center">
-            <div class="relative">
-                <img 
-                    src="{{ auth()->user()->avatar ?? asset('default-avatar.png') }}" 
-                    alt="Foto Profil" 
-                    class="w-32 h-32 rounded-full object-cover border-4 border-blue-100 shadow-md hover:scale-105 transition duration-300"
-                >
-                <span class="absolute bottom-0 right-0 bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.414-1.414A1 1 0 0011.586 3H8.414a1 1 0 00-.707.293L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
-                    </svg>
-                </span>
-            </div>
-
-            <div class="text-center mt-4">
-                <h2 class="text-xl font-bold text-gray-800">{{ auth()->user()->name }}</h2>
-                <p class="text-sm text-gray-500">{{ auth()->user()->email }}</p>
-            </div>
-
-            <div class="w-full mt-6">
-                <nav class="space-y-2">
-                    <a href="#profile-info" 
-                       class="flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 rounded-lg transition duration-200 group active:bg-blue-100"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3 text-gray-400 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        Informasi Profil
-                    </a>
-                    <a href="#addresses" 
-                       class="flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 rounded-lg transition duration-200 group"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3 text-gray-400 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        Alamat
-                    </a>
-                    <a href="orders" 
-                       class="flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 rounded-lg transition duration-200 group"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3 text-gray-400 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                        Pesanan
-                    </a>
-                    <a href="{{ route('profile.edit') }}" 
-                       class="flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 rounded-lg transition duration-200 group"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3 text-gray-400 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        Pengaturan Akun
-                    </a>
-                </nav>
-            </div>
+<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header Section -->
+        <div class="text-center mb-12">
+            <h1 class="text-3xl md:text-4xl font-light text-gray-900 mb-4">Profil Saya</h1>
+            <div class="w-16 h-0.5 bg-gray-900 mx-auto"></div>
         </div>
-    </div>
 
-    <!-- Konten Profil -->
-    <div class="md:col-span-9">
-        <div class="bg-white shadow-lg rounded-lg overflow-hidden">
-            <!-- Tab Informasi Profil -->
-            <div class="p-6" id="profile-info">
-                <div class="flex justify-between items-center border-b pb-4 mb-6">
-                    <h2 class="text-2xl font-bold text-gray-800">Informasi Profil</h2>
-                    <a href="{{ route('profile.edit') }}" class="text-blue-500 hover:text-blue-700 transition duration-200 flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                        </svg>
-                        Edit Profil
-                    </a>
+        <div class="grid lg:grid-cols-4 gap-8">
+            <!-- Sidebar Profile -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <!-- Profile Avatar Section -->
+            <div class="p-8 text-center border-b border-gray-50">
+                <div class="relative inline-block mb-6">
+                    <div class="w-24 h-24 rounded-full overflow-hidden ring-1 ring-gray-100 hover:ring-gray-200 transition-all duration-300 group">
+                        @php
+                            $user = auth()->user();
+                            $hasAvatar = false;
+                            $avatarUrl = null;
+                            
+                            if ($user->avatar) {
+                                // Check if avatar path already includes 'avatars/' or not
+                                $avatarPath = $user->avatar;
+                                
+                                // If avatar field doesn't start with 'avatars/', add it
+                                if (!str_starts_with($avatarPath, 'avatars/')) {
+                                    $avatarPath = 'avatars/' . $avatarPath;
+                                }
+                                
+                                // Check if file exists in storage
+                                if (Storage::disk('public')->exists($avatarPath)) {
+                                    $avatarUrl = Storage::disk('public')->url($avatarPath);
+                                    $hasAvatar = true;
+                                }
+                            }
+                            
+                            // Generate initials as fallback
+                            $names = explode(' ', trim($user->name));
+                            $initials = '';
+                            foreach ($names as $name) {
+                                if (!empty($name)) {
+                                    $initials .= strtoupper(substr($name, 0, 1));
+                                }
+                            }
+                            $initials = substr($initials, 0, 2);
+                            
+                            // Ensure we have at least one initial
+                            if (empty($initials)) {
+                                $initials = strtoupper(substr($user->name, 0, 1));
+                            }
+                        @endphp
+                        
+                        @if($hasAvatar && $avatarUrl)
+                            <img 
+                                src="{{ $avatarUrl }}" 
+                                alt="Profile {{ $user->name }}"
+                                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                            >
+                            <!-- Fallback with initials (hidden by default) -->
+                            <div class="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-lg" style="display: none;">
+                                {{ $initials }}
+                            </div>
+                        @else
+                            <!-- Default avatar with initials -->
+                            <div class="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-lg">
+                                {{ $initials }}
+                            </div>
+                        @endif
+                    </div>
                 </div>
+                
+                <h2 class="text-lg font-medium text-gray-900 mb-1">{{ $user->name }}</h2>
+                <p class="text-sm text-gray-500 font-light">{{ $user->email }}</p>
+            </div>
 
-                <div class="grid md:grid-cols-2 gap-6">
-                    <div>
-                        <div class="mb-4">
-                            <label class="block text-gray-700 font-bold mb-2">Nama Lengkap</label>
-                            <p class="text-gray-600">{{ auth()->user()->name }}</p>
+                    <!-- Navigation Menu -->
+                    <nav class="p-6">
+                        <div class="space-y-1">
+                            <a href="#profile-info" 
+                               class="flex items-center px-4 py-3 text-sm text-gray-900 bg-gray-50 rounded-xl transition-all duration-200 group"
+                            >
+                                <div class="w-5 h-5 mr-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                                    </svg>
+                                </div>
+                                Informasi Profil
+                            </a>
+                            
+                            <a href="{{ route('profile.address') }}" 
+                               class="flex items-center px-4 py-3 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all duration-200 group"
+                            >
+                                <div class="w-5 h-5 mr-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                                    </svg>
+                                </div>
+                                Alamat
+                            </a>
+                            
+                            <a href="{{ route('orders.index') }}" 
+                               class="flex items-center px-4 py-3 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all duration-200 group"
+                            >
+                                <div class="w-5 h-5 mr-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119.993z" />
+                                    </svg>
+                                </div>
+                                Pesanan
+                            </a>
+                            
+                            <a href="{{ route('profile.edit') }}" 
+                               class="flex items-center px-4 py-3 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all duration-200 group"
+                            >
+                                <div class="w-5 h-5 mr-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                </div>
+                                Pengaturan
+                            </a>
                         </div>
-                        <div class="mb-4">
-                            <label class="block text-gray-700 font-bold mb-2">Email</label>
-                            <p class="text-gray-600">{{ auth()->user()->email }}</p>
-                        </div>
-                        <div class="mb-4">
-                            <label class="block text-gray-700 font-bold mb-2">Telepon</label>
-                            <p class="text-gray-600">{{ auth()->user()->phone ?? 'Belum diatur' }}</p>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="lg:col-span-3">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <!-- Header -->
+                    <div class="p-8 border-b border-gray-50" id="profile-info">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div>
+                                <h2 class="text-2xl font-light text-gray-900 mb-2">Informasi Profil</h2>
+                                <p class="text-sm text-gray-500 font-light">Kelola informasi pribadi Anda</p>
+                            </div>
+                            <a href="{{ route('profile.edit') }}" 
+                               class="inline-flex items-center px-6 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-800 transition-colors duration-200 group"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-2 group-hover:scale-110 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                                </svg>
+                                Edit Profil
+                            </a>
                         </div>
                     </div>
-                    <div>
-                        <div class="mb-4">
-                            <label class="block text-gray-700 font-bold mb-2">Bergabung Sejak</label>
-                            <p class="text-gray-600">{{ auth()->user()->created_at->format('d M Y') }}</p>
-                        </div>
-                        <div class="mb-4">
-                            <label class="block text-gray-700 font-bold mb-2">Terakhir Diperbarui</label>
-                            <p class="text-gray-600">{{ auth()->user()->updated_at->format('d M Y') }}</p>
+
+                    <!-- Profile Information -->
+                    <div class="p-8">
+                        <div class="grid sm:grid-cols-2 gap-8">
+                            <!-- Left Column -->
+                            <div class="space-y-6">
+                                <div class="group">
+                                    <label class="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+                                        Nama Lengkap
+                                    </label>
+                                    <p class="text-gray-900 font-light text-lg">{{ auth()->user()->name }}</p>
+                                </div>
+                                
+                                <div class="group">
+                                    <label class="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+                                        Email
+                                    </label>
+                                    <p class="text-gray-900 font-light text-lg">{{ auth()->user()->email }}</p>
+                                </div>
+                                
+                                <div class="group">
+                                    <label class="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+                                        Nomor Telepon
+                                    </label>
+                                    <p class="text-gray-900 font-light text-lg">
+                                        {{ auth()->user()->phone ?? 'Belum diatur' }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Right Column -->
+                            <div class="space-y-6">
+                                <div class="group">
+                                    <label class="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+                                        Bergabung Sejak
+                                    </label>
+                                    <p class="text-gray-900 font-light text-lg">
+                                        {{ auth()->user()->created_at->format('d M Y') }}
+                                    </p>
+                                </div>
+                                
+                                <div class="group">
+                                    <label class="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+                                        Terakhir Diperbarui
+                                    </label>
+                                    <p class="text-gray-900 font-light text-lg">
+                                        {{ auth()->user()->updated_at->format('d M Y') }}
+                                    </p>
+                                </div>
+                                
+                                <div class="group">
+                                    <label class="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+                                        Status Akun
+                                    </label>
+                                    <div class="flex items-center">
+                                        <div class="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                                        <p class="text-gray-900 font-light text-lg">Aktif</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -117,13 +117,13 @@ class _AddWholesaleNoteScreenState extends State<AddWholesaleNoteScreen> {
             TextFormField(
               controller: _customerNameController,
               decoration: InputDecoration(
-                labelText: 'Nama Pelanggan',
+                labelText: 'Nama Toko',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.person),
               ),
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return 'Masukkan nama pelanggan';
+                  return 'Masukkan nama toko';
                 }
                 return null;
               },

@@ -27,10 +27,16 @@ class ReceiptImageViewer extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          color: const Color.fromARGB(255, 255, 255, 255),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: Text('Pratinjau Bukti'),
         actions: [
           IconButton(
             icon: Icon(Icons.delete_forever),
+            color: const Color.fromARGB(255, 255, 255, 255),
             onPressed: () {
               _showDeleteConfirmationDialog(context);
             },

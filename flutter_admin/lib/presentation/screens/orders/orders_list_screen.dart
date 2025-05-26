@@ -706,14 +706,6 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
           Stack(
             alignment: Alignment.center,
             children: [
-              IconButton(
-                icon: Icon(
-                  Icons.person_search,
-                  color: Colors.white,
-                ),
-                tooltip: 'Segarkan Nama Pelanggan',
-                onPressed: _isFetchingUserData ? null : _refreshAllCustomerNames,
-              ),
               if (_isFetchingUserData)
                 SizedBox(
                   width: 24,
@@ -807,11 +799,6 @@ class _OrdersListScreenState extends State<OrdersListScreen> {
                       ),
                 ),
       bottomNavigationBar: _buildBottomNavigation(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _refreshOrders,
-        tooltip: 'Refresh Pesanan',
-        child: const Icon(Icons.refresh),
-      ),
     );
   }
 

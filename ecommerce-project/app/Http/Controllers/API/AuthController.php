@@ -22,20 +22,35 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'password' => 'required|min:6|confirmed'
+            'password' => 'required|min:8|confirmed', // Ubah min jadi 8 dan tambah confirmed
+            'password_confirmation' => 'required' // Pastikan ada field ini
         ]);
 
         if ($validator->fails()) {
             return response()->json([
+                'message' => 'Validation failed',
                 'errors' => $validator->errors()
             ], 422);
         }
 
         try {
-            $user = $this->authService->register($request->validated());
+            // Gunakan $request->all() atau manual, bukan validated()
+            $userData = [
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => $request->password,
+                'password_confirmation' => $request->password_confirmation
+            ];
+            
+            $user = $this->authService->register($userData);
+            
+            // 🔑 Buat token untuk user yang baru register
+            $token = $user->createToken('AuthToken')->plainTextToken;
+            
             return response()->json([
                 'message' => 'User registered successfully',
-                'user' => $user
+                'user' => $user,
+                'token' => $token // Tambahkan token ke response
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
@@ -54,6 +69,7 @@ class AuthController extends Controller
 
         if ($validator->fails()) {
             return response()->json([
+                'message' => 'Validation failed',
                 'errors' => $validator->errors()
             ], 422);
         }
@@ -69,7 +85,7 @@ class AuthController extends Controller
 
             $user = Auth::user();
 
-            // 🔥 Tambahkan ini: hapus semua token lama
+            // 🔥 Hapus semua token lama
             $user->tokens()->delete();
 
             // 🔑 Buat token baru

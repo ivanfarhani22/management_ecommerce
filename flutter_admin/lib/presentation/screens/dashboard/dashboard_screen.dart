@@ -84,10 +84,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       double totalAmount = 0;
       Map<int, double> monthlySales = {};
       
-      // Process data only if it's not null
-      if (data != null && data['data'] != null) {
+      // Check multiple possible response structures
+      List<dynamic>? payments;
+      
+      if (data != null) {
+        if (data['data'] != null) {
+          payments = data['data'];
+        } else if (data['payments'] != null) {
+          payments = data['payments'];
+        } else if (data is List) {
+          payments = data;
+        }
+      }
+      
+      // Process data only if payments list exists
+      if (payments != null) {
         // Calculate total sales from payments
-        for (var payment in data['data']) {
+        for (var payment in payments) {
           if (payment != null && payment['status'] == 'completed') {
             // Handle the case where amount could be a String or num
             final dynamic amountValue = payment['amount'];
@@ -109,7 +122,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
         
         // Extract monthly sales data for the chart
-        for (var payment in data['data']) {
+        for (var payment in payments) {
           if (payment != null && payment['status'] == 'completed' && payment['created_at'] != null) {
             try {
               final DateTime paymentDate = DateTime.parse(payment['created_at']);
@@ -134,7 +147,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
         }
       } else {
-        debugPrint('Warning: Payment data or data["data"] is null');
+        debugPrint('Warning: No payment data found in response');
       }
       
       if (mounted) {
@@ -161,13 +174,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
       
       if (mounted) {
         setState(() {
-          // Check if data and data['data'] are not null before accessing length
-          if (data != null && data['data'] != null) {
-            _totalOrders = data['data'].length.toString();
-          } else {
-            _totalOrders = '0';
-            debugPrint('Warning: Order data or data["data"] is null');
+          // Check multiple possible response structures
+          int orderCount = 0;
+          
+          if (data != null) {
+            if (data['data'] != null && data['data'] is List) {
+              orderCount = data['data'].length;
+            } else if (data['orders'] != null && data['orders'] is List) {
+              orderCount = data['orders'].length;
+            } else if (data is List) {
+              orderCount = data.length;
+            }
           }
+          
+          _totalOrders = orderCount.toString();
         });
       }
     } catch (e) {
@@ -182,9 +202,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
       
       List<Map<String, dynamic>> lowStockItems = [];
       
-      // Process data only if it's not null
-      if (data != null && data['data'] != null) {
-        for (var product in data['data']) {
+      // Check multiple possible response structures
+      List<dynamic>? products;
+      
+      if (data != null) {
+        if (data['data'] != null) {
+          products = data['data'];
+        } else if (data['products'] != null) {
+          products = data['products'];
+        } else if (data is List) {
+          products = data;
+        }
+      }
+      
+      // Process data only if products list exists
+      if (products != null) {
+        for (var product in products) {
           if (product != null) {
             // Handle possible null or string values
             final dynamic stockValue = product['stock'];
@@ -200,11 +233,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               currentStock = int.tryParse(stockValue) ?? 0;
             }
             
-            // Parse minimum stock
+            // Parse minimum stock - if not provided, use a default of 10
             if (minStockValue is int) {
               minimumStock = minStockValue;
             } else if (minStockValue is String) {
-              minimumStock = int.tryParse(minStockValue) ?? 0;
+              minimumStock = int.tryParse(minStockValue) ?? 10;
+            } else {
+              minimumStock = 10; // Default minimum stock threshold
             }
             
             if (currentStock < minimumStock) {
@@ -217,7 +252,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
         }
       } else {
-        debugPrint('Warning: Product data or data["data"] is null');
+        debugPrint('Warning: No product data found in response');
       }
       
       if (mounted) {

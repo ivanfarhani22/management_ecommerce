@@ -27,9 +27,10 @@ Route::prefix('v1')->group(function () {
     Route::get('/categories', [CategoryController::class, 'index']);
     
     // User public endpoints (no authentication required)
+    Route::get('/users', [UserController::class, 'index']);
     Route::get('/users/{id}', [UserController::class, 'show']);
     Route::post('/users/batch', [UserController::class, 'getMultipleUsers']);
-    Route::get('/users/batch', [UserController::class, 'getMultipleUsers']); // Added GET support
+    Route::get('/users/batch', [UserController::class, 'getMultipleUsers']);
     
     // Debug route for troubleshooting
     Route::get('/debug/users/batch', function (Request $request) {
@@ -58,8 +59,8 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::get('/profile', [UserController::class, 'profile']);
     Route::put('/profile', [UserController::class, 'updateProfile']);
 
-    // Users Management (Admin only)
-    Route::get('/users', [UserController::class, 'index']);
+    // Users Management (Admin only) - HAPUS DUPLIKASI INI
+    // Route::get('/users', [UserController::class, 'index']); // HAPUS BARIS INI
     Route::put('/users/{user}', [UserController::class, 'update']);
     Route::delete('/users/{user}', [UserController::class, 'destroy']);
 
@@ -81,11 +82,11 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::delete('/products/{product}', [ProductController::class, 'destroy']);
     
     // Payments
-    Route::post('/payments', [PaymentController::class, 'process']); // Tambahkan endpoint POST langsung untuk payments
+    Route::post('/payments', [PaymentController::class, 'process']);
     Route::prefix('payments')->group(function () {
         Route::get('/', [PaymentController::class, 'index']);
         Route::get('/{id}', [PaymentController::class, 'show']);
-        Route::post('/process', [PaymentController::class, 'process']); // Tetap mempertahankan endpoint ini
+        Route::post('/process', [PaymentController::class, 'process']);
         Route::post('/{id}/refund', [PaymentController::class, 'refund']);
         Route::get('/order/{orderId}', [PaymentController::class, 'getByOrder']);
         Route::get('/status/{status}', [PaymentController::class, 'getByStatus']);

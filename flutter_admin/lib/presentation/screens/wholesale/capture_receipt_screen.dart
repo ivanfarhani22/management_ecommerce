@@ -451,7 +451,7 @@ class _CaptureReceiptScreenState extends State<CaptureReceiptScreen> {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: _isLoading ? null : _captureImage,
-                    icon: Icon(Icons.camera_alt),
+                    icon: Icon(Icons.camera_alt, color: Colors.white,),
                     label: Text('Ambil Foto'),
                     style: ElevatedButton.styleFrom(
                       padding: EdgeInsets.symmetric(vertical: 12),
@@ -462,7 +462,7 @@ class _CaptureReceiptScreenState extends State<CaptureReceiptScreen> {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: _isLoading ? null : _pickImageFromGallery,
-                    icon: Icon(Icons.photo_library),
+                    icon: Icon(Icons.photo_library, color: Colors.white,),
                     label: Text('Galeri'),
                     style: ElevatedButton.styleFrom(
                       padding: EdgeInsets.symmetric(vertical: 12),

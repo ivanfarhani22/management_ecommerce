@@ -13,6 +13,7 @@
         "laravel/reverb": "^1.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
+        "midtrans/midtrans-php": "^2.6",
         "spatie/laravel-permission": "*"
     },
     "require-dev": {

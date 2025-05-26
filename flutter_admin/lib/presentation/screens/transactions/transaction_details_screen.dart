@@ -159,11 +159,17 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(
-        title: 'Detail Transaksi',
+      appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          color: const Color.fromARGB(255, 255, 255, 255),
+          onPressed: () => Navigator.pop(context),
+        ),
+         title: const Text('Detail Transaksi'),
         actions: [
           if (_transaction != null && (_transaction!.status == 'pending' || _transaction!.status == 'failed'))
             PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Colors.white),
               onSelected: (value) async {
                 if (value == 'retry') {
                   // Handle retry payment

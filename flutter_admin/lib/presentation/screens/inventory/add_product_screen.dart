@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/image_picker_widget.dart';
@@ -26,6 +30,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final _stockController = TextEditingController();
   final _priceController = TextEditingController();
   final _secureStorage = const FlutterSecureStorage();
+  final _imagePicker = ImagePicker();
 
   int? _selectedCategoryId;
   String? _selectedCategoryName;
@@ -34,11 +39,32 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   File? _selectedImage;
   List<Map<String, dynamic>> _categories = [];
+  int _androidSdkVersion = 0;
 
   @override
   void initState() {
     super.initState();
-    _fetchCategories();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    await _getAndroidVersion();
+    await _fetchCategories();
+    // HAPUS _checkAndRequestPermissions() dari init karena sekarang per-action
+  }
+
+  Future<void> _getAndroidVersion() async {
+    if (Platform.isAndroid) {
+      try {
+        DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+        AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+        _androidSdkVersion = androidInfo.version.sdkInt;
+        debugPrint('Android SDK Version: $_androidSdkVersion');
+      } catch (e) {
+        debugPrint('Error getting Android version: $e');
+        _androidSdkVersion = 30; // Default to API 30 if error
+      }
+    }
   }
 
   @override
@@ -50,8 +76,250 @@ class _AddProductScreenState extends State<AddProductScreen> {
     super.dispose();
   }
 
+  // Method untuk request camera permission (HANYA untuk kamera)
+  Future<bool> _requestCameraPermission() async {
+    try {
+      debugPrint('Requesting camera permission only');
+      
+      PermissionStatus cameraStatus = await Permission.camera.status;
+      debugPrint('Camera permission status: $cameraStatus');
+      
+      if (cameraStatus != PermissionStatus.granted) {
+        cameraStatus = await Permission.camera.request();
+        debugPrint('Camera permission after request: $cameraStatus');
+        
+        if (cameraStatus == PermissionStatus.permanentlyDenied) {
+          _showPermissionDialog('Kamera', true);
+          return false;
+        } else if (cameraStatus != PermissionStatus.granted) {
+          _showPermissionDialog('Kamera', false);
+          return false;
+        }
+      }
+      
+      debugPrint('✓ Camera permission granted');
+      return true;
+    } catch (e) {
+      debugPrint('Error requesting camera permission: $e');
+      _showPermissionErrorDialog(e.toString());
+      return false;
+    }
+  }
+
+  // Dialog untuk permission
+  void _showPermissionDialog(String permissionType, bool isPermanentlyDenied) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Izin Diperlukan'),
+        content: Text(
+          isPermanentlyDenied
+              ? 'Aplikasi memerlukan izin $permissionType untuk mengambil foto produk. '
+                'Izin telah ditolak secara permanen. Silakan berikan izin di pengaturan aplikasi.'
+              : 'Aplikasi memerlukan izin $permissionType untuk mengambil foto produk. '
+                'Silakan berikan izin untuk melanjutkan.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              if (isPermanentlyDenied) {
+                openAppSettings();
+              } else {
+                _requestCameraPermission();
+              }
+            },
+            child: Text(isPermanentlyDenied ? 'Buka Pengaturan' : 'Coba Lagi'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Dialog untuk error permission
+  void _showPermissionErrorDialog(String error) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Error Permission'),
+        content: Text(
+          'Terjadi kesalahan saat meminta izin: $error\n\n'
+          'Catatan:\n'
+          '• CAMERA permission diperlukan untuk kamera\n'
+          '• GALLERY tidak memerlukan permission di Android 10+\n\n'
+          'Pastikan manifest sudah benar dan coba restart aplikasi.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Method untuk pick image - SUDAH DIPERBAIKI UNTUK GALLERY TANPA PERMISSION
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      debugPrint('Attempting to pick image from: $source');
+      
+      // HANYA untuk camera yang perlu check permission
+      if (source == ImageSource.camera) {
+        bool hasPermission = await _requestCameraPermission();
+        if (!hasPermission) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Izin kamera diperlukan untuk mengambil foto'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+      }
+      // Untuk gallery, LANGSUNG TANPA permission check
+      else if (source == ImageSource.gallery) {
+        debugPrint('Gallery access - no permission required for Android 10+ scoped storage');
+      }
+
+      // Langsung pick image tanpa additional permission check untuk gallery
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null) {
+        File imageFile = File(pickedFile.path);
+        debugPrint('Image picked successfully: ${imageFile.path}');
+        
+        // Optional: Crop image
+        final croppedFile = await _cropImage(imageFile);
+        
+        setState(() {
+          _selectedImage = croppedFile ?? imageFile;
+        });
+        
+        debugPrint('Image selected and set: ${_selectedImage?.path}');
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                source == ImageSource.camera 
+                    ? 'Foto berhasil diambil dari kamera'
+                    : 'Gambar berhasil dipilih dari galeri'
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        debugPrint('No image was selected');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                source == ImageSource.camera 
+                    ? 'Tidak ada foto yang diambil'
+                    : 'Tidak ada gambar yang dipilih'
+              ),
+              backgroundColor: Colors.grey,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+      
+      if (mounted) {
+        String errorMessage = 'Gagal mengambil gambar';
+        
+        if (source == ImageSource.camera) {
+          if (e.toString().toLowerCase().contains('permission') || 
+              e.toString().toLowerCase().contains('denied')) {
+            errorMessage = 'Izin kamera tidak diberikan';
+          } else if (e.toString().toLowerCase().contains('camera') && 
+                     e.toString().toLowerCase().contains('unavailable')) {
+            errorMessage = 'Kamera tidak tersedia saat ini';
+          } else {
+            errorMessage = 'Gagal mengambil foto dari kamera';
+          }
+        } else {
+          // Gallery errors
+          if (e.toString().toLowerCase().contains('no application found') ||
+             e.toString().toLowerCase().contains('no activity found')) {
+            errorMessage = 'Tidak ada aplikasi galeri yang tersedia';
+          } else {
+            errorMessage = 'Gagal membuka galeri';
+          }
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<File?> _cropImage(File imageFile) async {
+    try {
+      CroppedFile? croppedFile = await ImageCropper().cropImage(
+        sourcePath: imageFile.path,
+        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Gambar',
+            toolbarColor: Theme.of(context).primaryColor,
+            toolbarWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.square,
+            lockAspectRatio: false,
+            aspectRatioPresets: [
+              CropAspectRatioPreset.original,
+              CropAspectRatioPreset.square,
+              CropAspectRatioPreset.ratio3x2,
+              CropAspectRatioPreset.ratio4x3,
+              CropAspectRatioPreset.ratio16x9
+            ],
+          ),
+          IOSUiSettings(
+            title: 'Crop Gambar',
+            aspectRatioPresets: [
+              CropAspectRatioPreset.original,
+              CropAspectRatioPreset.square,
+              CropAspectRatioPreset.ratio3x2,
+              CropAspectRatioPreset.ratio4x3,
+              CropAspectRatioPreset.ratio16x9
+            ],
+          ),
+        ],
+      );
+
+      if (croppedFile != null) {
+        return File(croppedFile.path);
+      }
+    } catch (e) {
+      debugPrint('Error cropping image: $e');
+      // Return original image if cropping fails
+    }
+    return null;
+  }
+
+
   Future<Map<String, String>> _getAuthHeaders() async {
-    // Mendapatkan token dari secure storage
     final token = await _secureStorage.read(key: 'auth_token');
     
     return {
@@ -66,7 +334,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
     try {
       debugPrint('Fetching categories from: ${AppConfig.baseApiUrl}/v1/categories');
       
-      // Gunakan header dengan otentikasi
       final headers = await _getAuthHeaders();
       
       final response = await http.get(
@@ -94,7 +361,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
           });
         }
       } else if (response.statusCode == 401) {
-        // Handle unauthorized case - redirect to login
         _handleUnauthorized();
         throw Exception('Unauthorized: Please login again');
       } else {
@@ -122,10 +388,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
   }
 
   void _handleUnauthorized() {
-    // Hapus token karena sudah tidak valid
     _secureStorage.delete(key: 'auth_token');
     
-    // Tampilkan dialog dan arahkan ke halaman login
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -136,7 +400,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // Arahkan ke halaman login dan hapus semua rute sebelumnya
               Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
             },
             child: const Text('OK'),
@@ -171,22 +434,18 @@ class _AddProductScreenState extends State<AddProductScreen> {
       try {
         debugPrint('Sending product to: ${AppConfig.baseApiUrl}/v1/products');
 
-        // Get auth token for the request
         final token = await _secureStorage.read(key: 'auth_token');
         
-        // Create multipart request
         final request = http.MultipartRequest(
           'POST',
           Uri.parse('${AppConfig.baseApiUrl}/v1/products'),
         );
 
-        // Add authorization headers
         request.headers.addAll({
           'Accept': 'application/json',
           'Authorization': 'Bearer ${token ?? ''}',
         });
 
-        // Add text fields
         request.fields['name'] = _nameController.text;
         request.fields['description'] = _descriptionController.text;
         request.fields['price'] = _priceController.text;
@@ -194,11 +453,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
         request.fields['category_id'] = _selectedCategoryId.toString();
         request.fields['is_active'] = '1';
 
-        // Add image file
         final fileName = path.basename(_selectedImage!.path);
         final fileExtension = path.extension(fileName).toLowerCase().replaceFirst('.', '');
         
-        // Determine the correct MIME type based on file extension
         String mimeType;
         switch (fileExtension) {
           case 'jpg':
@@ -215,7 +472,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             mimeType = 'image/webp';
             break;
           default:
-            mimeType = 'image/jpeg'; // Default to JPEG if unknown
+            mimeType = 'image/jpeg';
         }
         
         request.files.add(
@@ -228,7 +485,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
         debugPrint('Sending multipart request...');
         
-        // Send the request
         final streamedResponse = await request.send().timeout(AppConfig.apiTimeout);
         final response = await http.Response.fromStream(streamedResponse);
 
@@ -286,13 +542,74 @@ class _AddProductScreenState extends State<AddProductScreen> {
     return a < b ? a : b;
   }
 
+  // Method untuk show image picker options - UPDATED
+  void _showImagePickerOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  'Pilih Sumber Gambar',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt, color: Colors.blue),
+                title: const Text('Ambil dari Kamera'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library, color: Colors.green),
+                title: const Text('Pilih dari Galeri'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              if (_selectedImage != null)
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text('Hapus Gambar'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() {
+                      _selectedImage = null;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Gambar telah dihapus'),
+                        backgroundColor: Colors.orange,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: true, // atau false, tergantung kebutuhanmu
-        iconTheme: IconThemeData(
-          color: const Color.fromARGB(255, 255, 255, 255), // Ganti warna sesuai kebutuhan
+        automaticallyImplyLeading: true,
+        iconTheme: const IconThemeData(
+          color: Color.fromARGB(255, 255, 255, 255),
         ),
         title: const Text('Tambah Produk Baru'),
       ),
@@ -305,14 +622,55 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // IMAGE PICKER SECTION - UPDATED
                     Center(
-                      child: ImagePickerWidget(
-                        onImageSelected: (image) {
-                          setState(() {
-                            _selectedImage = image;
-                          });
-                        },
-                        allowCropping: true,
+                      child: Column(
+                        children: [
+                          GestureDetector(
+                            onTap: _showImagePickerOptions,
+                            child: Container(
+                              width: 150,
+                              height: 150,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: _selectedImage != null
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.file(
+                                        _selectedImage!,
+                                        width: 150,
+                                        height: 150,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : const Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.add_a_photo,
+                                          size: 50,
+                                          color: Colors.grey,
+                                        ),
+                                        SizedBox(height: 8),
+                                        Text(
+                                          'Tambah Gambar',
+                                          style: TextStyle(color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Ketuk untuk menambah/mengubah gambar',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 20),

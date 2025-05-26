@@ -17,6 +17,8 @@ use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ChatbotController;
+use App\Http\Controllers\AddressController;
+use App\Http\Controllers\MidtransController;
 
 // API Controllers
 use App\Http\Controllers\API\AuthController;
@@ -37,7 +39,6 @@ Route::get('/catalog/category/{category}', [CatalogController::class, 'category'
 Route::get('/products', [ProductController::class, 'index'])->name('products.index');
 Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show');
 Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.detail');
-
 
 // Authentication Routes
 Route::middleware(['guest'])->group(function () {
@@ -90,6 +91,10 @@ Route::middleware(['auth'])->group(function () {
         
         // Success page
         Route::get('/success/{order}', [CheckoutController::class, 'success'])->name('checkout.success');
+        
+        // Midtrans Payment Processing Routes
+        Route::get('/payment/process/{order}/{snap_token}', [MidtransController::class, 'paymentProcess'])
+            ->name('checkout.payment.process');
     });
 
     // Order Routes
@@ -100,7 +105,37 @@ Route::middleware(['auth'])->group(function () {
 
     // Order confirmation email endpoint
     Route::post('/orders/{order}/send-confirmation', [OrderController::class, 'sendConfirmation'])->name('orders.send-confirmation');
-    });
+    
+    // Midtrans Status Check (Authenticated)
+    Route::get('/midtrans/status/{transaction_id}', [MidtransController::class, 'checkStatus'])
+        ->name('midtrans.status');
+});
+
+// Midtrans Public Routes (No authentication required)
+Route::prefix('midtrans')->group(function () {
+    // Midtrans webhook notification (public)
+    Route::post('/notification', [MidtransController::class, 'notification'])
+        ->name('midtrans.notification');
+    
+    // Midtrans finish redirect (public)
+    Route::get('/finish', [MidtransController::class, 'finish'])
+        ->name('midtrans.finish');
+});
+
+// Profile Routes
+Route::middleware(['auth'])->group(function () {
+    Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
+    Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
+
+     // Address routes
+    Route::get('/profile/addresses', [AddressController::class, 'index'])->name('profile.address');
+    Route::get('/addresses/create', [AddressController::class, 'create'])->name('addresses.create');
+    Route::post('/addresses', [AddressController::class, 'store'])->name('addresses.store');
+    Route::get('/addresses/{address}/edit', [AddressController::class, 'edit'])->name('addresses.edit');
+    Route::put('/addresses/{address}', [AddressController::class, 'update'])->name('addresses.update');
+    Route::delete('/addresses/{address}', [AddressController::class, 'delete'])->name('addresses.delete');
+});
 
 // API Routes
 Route::prefix('api')->group(function () {
@@ -136,17 +171,59 @@ Route::prefix('api')->group(function () {
     });
 });
 
-Route::middleware(['auth'])->group(function () {
-    Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
-    Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::put('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
-});
-
 // Chatbot API Routes
 Route::prefix('chatbot')->controller(ChatbotController::class)->group(function () {
     Route::post('/', 'sendMessage');
     Route::get('/history', 'getHistory');
     Route::post('/clear-history', 'clearHistory');
+});
+
+Route::get('/test-midtrans', function() {
+    $midtransService = new App\Services\MidtransService();
+    return response()->json($midtransService->testConfiguration());
+});
+
+Route::get('/test-snap-token', function() {
+    try {
+        // Ambil order dan payment yang ada untuk test
+        $order = App\Models\Order::with(['items', 'user'])->first();
+        $payment = App\Models\Payment::where('order_id', $order->id)->first();
+        
+        if (!$order || !$payment) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No order or payment found for testing'
+            ]);
+        }
+        
+        $midtransService = new App\Services\MidtransService();
+        $snapToken = $midtransService->createSnapToken($order, $payment);
+        
+        return response()->json([
+            'status' => 'success',
+            'snap_token' => $snapToken,
+            'order_id' => $order->id,
+            'payment_id' => $payment->id
+        ]);
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+    }
+});
+
+Route::get('/debug-midtrans-config', function() {
+    return response()->json([
+        'env_server_key' => env('MIDTRANS_SERVER_KEY'),
+        'env_client_key' => env('MIDTRANS_CLIENT_KEY'),
+        'config_server_key' => config('midtrans.server_key'),
+        'config_client_key' => config('midtrans.client_key'),
+        'config_file_exists' => file_exists(config_path('midtrans.php')),
+        'midtrans_config_full' => config('midtrans')
+    ]);
 });
 
 // Error Routes

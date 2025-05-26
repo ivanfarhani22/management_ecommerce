@@ -43,24 +43,147 @@ class _ReportChartState extends State<ReportChart> {
     }
   }
 
+  // Helper method to safely convert dynamic value to double
+  double _safeToDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      // Remove any currency symbols or commas
+      String cleanValue = value.replaceAll(RegExp(r'[^\d.-]'), '');
+      return double.tryParse(cleanValue) ?? 0.0;
+    }
+    return 0.0;
+  }
+
+  // Helper method to safely convert dynamic value to bool
+  bool _safeToBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is String) {
+      return value.toLowerCase() == 'true' || value == '1';
+    }
+    if (value is int) return value != 0;
+    return false;
+  }
+
+  // Helper method to safely convert dynamic value to DateTime
+  DateTime _safeToDateTime(dynamic value) {
+    if (value is DateTime) return value;
+    if (value is String) {
+      return DateTime.tryParse(value) ?? DateTime.now();
+    }
+    return DateTime.now();
+  }
+
+  // Helper method to safely convert dynamic value to String
+  String _safeToString(dynamic value) {
+    if (value == null) return '';
+    return value.toString();
+  }
+
+  // Safe method to create FinancialReport from JSON with error handling
+  FinancialReport? _safeCreateFinancialReport(Map<String, dynamic> data) {
+    try {
+      // Create a completely safe copy of the data with proper type conversion
+      final Map<String, dynamic> safeData = {
+        'id': _safeToString(data['id'] ?? ''),
+        'title': _safeToString(data['title'] ?? data['name'] ?? ''),
+        'description': _safeToString(data['description'] ?? data['desc'] ?? ''),
+        'amount': _safeToDouble(data['amount']),
+        'isExpense': _safeToBool(data['isExpense'] ?? data['is_expense'] ?? data['type'] == 'expense'),
+        'date': _safeToDateTime(data['date'] ?? data['created_at'] ?? data['timestamp']),
+        'category': _safeToString(data['category'] ?? ''),
+      };
+      
+      print('Creating FinancialReport with safe data: $safeData'); // Debug log
+      
+      return FinancialReport.fromJson(safeData);
+    } catch (e) {
+      print('Error creating FinancialReport from data: $data, Error: $e');
+      return null;
+    }
+  }
+
   Future<void> _fetchReports() async {
     setState(() => _isLoading = true);
     try {
       // Get the raw reports data
-      final List<Map<String, dynamic>> rawReports = await _financeApi.getAllFinances();
+      final dynamic rawData = await _financeApi.getAllFinances();
       
-      // Convert raw data to FinancialReport objects
-      final reports = rawReports.map((data) => FinancialReport.fromJson(data)).toList();
+      print('Raw API response: $rawData'); // Debug log
+      
+      List<FinancialReport> reports = [];
+      
+      if (rawData is List) {
+        // If the API returns a List<Map<String, dynamic>>
+        for (var item in rawData) {
+          if (item is Map<String, dynamic>) {
+            final report = _safeCreateFinancialReport(item);
+            if (report != null) {
+              reports.add(report);
+            }
+          }
+        }
+      } else if (rawData is Map<String, dynamic>) {
+        // If the API returns a single Map with a list inside
+        List<dynamic> dataList = [];
+        
+        if (rawData.containsKey('data') && rawData['data'] is List) {
+          dataList = rawData['data'];
+        } else if (rawData.containsKey('finances') && rawData['finances'] is List) {
+          dataList = rawData['finances'];
+        } else if (rawData.containsKey('reports') && rawData['reports'] is List) {
+          dataList = rawData['reports'];
+        } else if (rawData.containsKey('result') && rawData['result'] is List) {
+          dataList = rawData['result'];
+        } else {
+          // If it's a single financial report
+          final report = _safeCreateFinancialReport(rawData);
+          if (report != null) {
+            reports = [report];
+          }
+        }
+        
+        // Process the list
+        for (var item in dataList) {
+          if (item is Map<String, dynamic>) {
+            final report = _safeCreateFinancialReport(item);
+            if (report != null) {
+              reports.add(report);
+            }
+          }
+        }
+      } else {
+        throw Exception('Unexpected data format from API: ${rawData.runtimeType}');
+      }
+      
+      print('Successfully loaded ${reports.length} reports'); // Debug log
+      
+      // Filter by date range if provided
+      if (widget.startDate != null && widget.endDate != null) {
+        final initialCount = reports.length;
+        reports = reports.where((report) {
+          return report.date.isAfter(widget.startDate!.subtract(const Duration(days: 1))) &&
+                 report.date.isBefore(widget.endDate!.add(const Duration(days: 1)));
+        }).toList();
+        print('Filtered ${initialCount} reports to ${reports.length} based on date range'); // Debug log
+      }
       
       setState(() {
         _reports = reports;
         _isLoading = false;
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load reports: $e')),
-      );
+      print('Error loading reports: $e'); // Debug print
+      print('Stack trace: $stackTrace'); // Debug print
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load reports: ${e.toString()}')),
+        );
+      }
     }
   }
 
@@ -109,23 +232,23 @@ class _ReportChartState extends State<ReportChart> {
   }
 
   Widget _buildBarChart() {
-    // Group by month using Map<String, dynamic>
-    final Map<String, dynamic> monthlyData = {};
+    // Group by month using Map<String, double> for better type safety
+    final Map<String, double> monthlyData = {};
     
     for (var report in _reports) {
       final month = '${report.date.month}/${report.date.year}';
       final value = report.isExpense ? -report.amount : report.amount;
       
-      if (monthlyData.containsKey(month)) {
-        monthlyData[month] = (monthlyData[month] as double) + value;
-      } else {
-        monthlyData[month] = value;
-      }
+      monthlyData[month] = (monthlyData[month] ?? 0.0) + value;
+    }
+
+    if (monthlyData.isEmpty) {
+      return const Center(child: Text('No data to display'));
     }
 
     // Find maximum value for scaling the chart properly
     final double maxAmount = monthlyData.values
-        .map((e) => (e as double).abs())
+        .map((e) => e.abs())
         .fold(0.0, (prev, element) => element > prev ? element : prev) * 1.2;
     
     return BarChart(
@@ -140,9 +263,9 @@ class _ReportChartState extends State<ReportChart> {
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
               final keys = monthlyData.keys.toList();
               final key = keys[group.x.toInt()];
-              final value = monthlyData[key] as double;
+              final value = monthlyData[key]!;
               return BarTooltipItem(
-                '${key}: ${value.abs().toStringAsFixed(2)}',
+                '$key: \$${value.abs().toStringAsFixed(2)}',
                 const TextStyle(color: Colors.white),
               );
             },
@@ -177,7 +300,7 @@ class _ReportChartState extends State<ReportChart> {
               showTitles: true,
               getTitlesWidget: (value, meta) {
                 return Text(
-                  value.toInt().toString(),
+                  '\$${value.toInt()}',
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -187,10 +310,10 @@ class _ReportChartState extends State<ReportChart> {
               reservedSize: 40,
             ),
           ),
-          topTitles: AxisTitles(
+          topTitles: const AxisTitles(
             sideTitles: SideTitles(showTitles: false),
           ),
-          rightTitles: AxisTitles(
+          rightTitles: const AxisTitles(
             sideTitles: SideTitles(showTitles: false),
           ),
         ),
@@ -203,7 +326,7 @@ class _ReportChartState extends State<ReportChart> {
         ),
         gridData: FlGridData(
           show: true,
-          horizontalInterval: maxAmount / 5,
+          horizontalInterval: maxAmount > 0 ? maxAmount / 5 : 1,
           getDrawingHorizontalLine: (value) {
             return FlLine(
               color: Colors.grey.shade200,
@@ -215,7 +338,7 @@ class _ReportChartState extends State<ReportChart> {
           monthlyData.length, 
           (index) {
             final String month = monthlyData.keys.elementAt(index);
-            final double amount = monthlyData[month] as double;
+            final double amount = monthlyData[month]!;
             return BarChartGroupData(
               x: index,
               barRods: [
@@ -237,23 +360,23 @@ class _ReportChartState extends State<ReportChart> {
   }
 
   Widget _buildLineChart() {
-    // Group by month for line chart using Map<String, dynamic>
-    final Map<String, dynamic> monthlyData = {};
+    // Group by month for line chart using Map<String, double>
+    final Map<String, double> monthlyData = {};
     
     for (var report in _reports) {
       final month = '${report.date.month}/${report.date.year}';
       final value = report.isExpense ? -report.amount : report.amount;
       
-      if (monthlyData.containsKey(month)) {
-        monthlyData[month] = (monthlyData[month] as double) + value;
-      } else {
-        monthlyData[month] = value;
-      }
+      monthlyData[month] = (monthlyData[month] ?? 0.0) + value;
+    }
+
+    if (monthlyData.isEmpty) {
+      return const Center(child: Text('No data to display'));
     }
 
     // Find maximum value for scaling the chart properly
     final double maxAmount = monthlyData.values
-        .map((e) => (e as double).abs())
+        .map((e) => e.abs())
         .fold(0.0, (prev, element) => element > prev ? element : prev) * 1.2;
     
     return LineChart(
@@ -271,7 +394,7 @@ class _ReportChartState extends State<ReportChart> {
                 final keys = monthlyData.keys.toList();
                 final key = keys[spot.x.toInt()];
                 return LineTooltipItem(
-                  '${key}: ${spot.y.toStringAsFixed(2)}',
+                  '$key: \$${spot.y.toStringAsFixed(2)}',
                   const TextStyle(color: Colors.white),
                 );
               }).toList();
@@ -307,7 +430,7 @@ class _ReportChartState extends State<ReportChart> {
               showTitles: true,
               getTitlesWidget: (value, meta) {
                 return Text(
-                  value.toInt().toString(),
+                  '\$${value.toInt()}',
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -317,16 +440,16 @@ class _ReportChartState extends State<ReportChart> {
               reservedSize: 40,
             ),
           ),
-          topTitles: AxisTitles(
+          topTitles: const AxisTitles(
             sideTitles: SideTitles(showTitles: false),
           ),
-          rightTitles: AxisTitles(
+          rightTitles: const AxisTitles(
             sideTitles: SideTitles(showTitles: false),
           ),
         ),
         gridData: FlGridData(
           show: true,
-          horizontalInterval: maxAmount / 5,
+          horizontalInterval: maxAmount > 0 ? maxAmount / 5 : 1,
           getDrawingHorizontalLine: (value) {
             return FlLine(
               color: Colors.grey.shade200,
@@ -346,7 +469,7 @@ class _ReportChartState extends State<ReportChart> {
             spots: List.generate(
               monthlyData.length, 
               (index) {
-                final double amount = monthlyData.values.elementAt(index) as double;
+                final double amount = monthlyData.values.elementAt(index);
                 return FlSpot(index.toDouble(), amount.abs());
               }
             ),
@@ -354,7 +477,7 @@ class _ReportChartState extends State<ReportChart> {
             color: Colors.blue,
             barWidth: 3,
             isStrokeCapRound: true,
-            dotData: FlDotData(show: true),
+            dotData: const FlDotData(show: true),
             belowBarData: BarAreaData(
               show: true,
               color: Colors.blue.withOpacity(0.2),
@@ -366,23 +489,21 @@ class _ReportChartState extends State<ReportChart> {
   }
 
   Widget _buildPieChart() {
-    // Group by categories for pie chart using Map<String, dynamic>
-    final Map<String, dynamic> categoryData = {};
+    // Group by categories for pie chart using Map<String, double>
+    final Map<String, double> categoryData = {};
     
     for (var report in _reports) {
-      final category = report.isExpense ? 'Expense' : 'Income'; // You should use actual categories
+      final category = report.isExpense ? 'Expenses' : 'Income';
       
-      if (categoryData.containsKey(category)) {
-        categoryData[category] = (categoryData[category] as double) + report.amount;
-      } else {
-        categoryData[category] = report.amount;
-      }
+      categoryData[category] = (categoryData[category] ?? 0.0) + report.amount.abs();
+    }
+    
+    if (categoryData.isEmpty) {
+      return const Center(child: Text('No data to display'));
     }
     
     // Calculate total for percentages
-    final double total = categoryData.values
-        .map((e) => e as double)
-        .fold(0.0, (sum, value) => sum + value);
+    final double total = categoryData.values.fold(0.0, (sum, value) => sum + value);
     
     final List<PieChartSectionData> sections = [];
     int index = 0;
@@ -400,12 +521,11 @@ class _ReportChartState extends State<ReportChart> {
     ];
     
     categoryData.forEach((category, amount) {
-      final double value = amount as double;
-      final double percentage = (value / total) * 100;
+      final double percentage = (amount / total) * 100;
       sections.add(
         PieChartSectionData(
           color: colors[index % colors.length],
-          value: value,
+          value: amount,
           title: '${percentage.toStringAsFixed(1)}%',
           radius: 100,
           titleStyle: const TextStyle(
@@ -445,6 +565,7 @@ class _ReportChartState extends State<ReportChart> {
                   categoryData.length,
                   (index) {
                     final category = categoryData.keys.elementAt(index);
+                    final amount = categoryData.values.elementAt(index);
                     final color = colors[index % colors.length];
                     return Row(
                       mainAxisSize: MainAxisSize.min,
@@ -456,7 +577,7 @@ class _ReportChartState extends State<ReportChart> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          category,
+                          '$category (\$${amount.toStringAsFixed(2)})',
                           style: const TextStyle(fontSize: 12),
                         ),
                       ],
