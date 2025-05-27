@@ -43,6 +43,8 @@ class AdminPanelProvider extends PanelProvider
                 Widgets\AccountWidget::class,
                 Widgets\FilamentInfoWidget::class,
             ])
+            // Avatar akan otomatis menggunakan getFilamentAvatarUrl() dari User model
+            // Tidak perlu konfigurasi tambahan di sini karena sudah implement FilamentUser
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
