@@ -4,152 +4,102 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\OrderItem;
-use App\Models\Payment;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Cart;
+use App\Models\Address;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class OrderService
 {
-    protected $midtransService;
+    protected $cartService;
+    protected $paymentService;
 
-    public function __construct(MidtransService $midtransService)
+    public function __construct(CartService $cartService, PaymentService $paymentService)
     {
-        $this->midtransService = $midtransService;
+        $this->cartService = $cartService;
+        $this->paymentService = $paymentService;
     }
 
-    public function createOrder(array $orderData): Order
+    public function createOrder(Address $shippingAddress, $paymentMethod)
     {
-        return DB::transaction(function () use ($orderData) {
-            // Generate unique order number
-            $orderNumber = $this->generateOrderNumber();
-            
-            // Create the order
+        return DB::transaction(function () use ($shippingAddress, $paymentMethod) {
+            $cart = $this->cartService->getCart();
+            $totalAmount = $this->cartService->calculateCartTotal();
+
             $order = Order::create([
-                'user_id' => $orderData['user_id'],
-                'address_id' => $orderData['address_id'],
-                'total_amount' => $orderData['total_amount'],
-                'status' => $orderData['status'],
-                'shipping_name' => $orderData['shipping_name'],
-                'shipping_address' => $orderData['shipping_address'],
-                'shipping_city' => $orderData['shipping_city'],
-                'shipping_state' => $orderData['shipping_state'],
-                'shipping_postal_code' => $orderData['shipping_postal_code'],
-                'shipping_country' => $orderData['shipping_country'],
-                'payment_method' => $orderData['payment_method'],
-                'order_number' => $orderNumber,
-                'delivery_method' => $orderData['delivery_method'] ?? 'standard',
-                'subtotal' => $orderData['subtotal'] ?? 0,
-                'delivery_cost' => $orderData['delivery_cost'] ?? 0,
+                'user_id' => Auth::id(),
+                'address_id' => $shippingAddress->id,
+                'total_amount' => $totalAmount,
+                'status' => 'pending'
             ]);
 
-            Log::info('Order created', ['order_id' => $order->id, 'order_number' => $orderNumber]);
-
-            // Create order items
-            foreach ($orderData['cart_items'] as $cartItem) {
-                if (!$cartItem->product) {
-                    throw new \Exception('Product not found for cart item: ' . $cartItem->id);
-                }
-                
+            // Create order items from cart items
+            foreach ($cart->cartItems as $cartItem) {
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $cartItem->product_id,
                     'quantity' => $cartItem->quantity,
                     'price' => $cartItem->product->price,
-                    'subtotal' => $cartItem->quantity * $cartItem->product->price,
-                    'product_name' => $cartItem->product->name
+                    'subtotal' => $cartItem->product->price * $cartItem->quantity
                 ]);
+
+                // Reduce product stock
+                $cartItem->product->decrement('stock', $cartItem->quantity);
             }
 
-            // Create payment record
-            $payment = Payment::create([
-                'order_id' => $order->id,
-                'payment_method' => $orderData['payment_method'],
-                'amount' => $orderData['total_amount'],
-                'status' => 'pending',
-                'transaction_id' => $orderNumber
-            ]);
+            // Process payment
+            $payment = $this->paymentService->processPayment($order, $paymentMethod);
 
-            // Load relationships
-            $order->load(['items', 'payment']);
-
-            Log::info('Order and payment created successfully', [
-                'order_id' => $order->id,
-                'payment_id' => $payment->id
-            ]);
+            // Clear the cart
+            $this->cartService->clearCart();
 
             return $order;
         });
     }
 
-    public function validateOrderOwnership(Order $order): void
+    // Add this method to match what's being called in the controller
+    public function getOrdersByUser($userId)
     {
-        if ($order->user_id !== Auth::id()) {
-            throw new \Exception('Unauthorized access to order.');
-        }
+        return Order::where('user_id', $userId)
+            ->with(['orderItems.product', 'payment'])
+            ->latest()
+            ->get();
     }
 
-    public function validateRetryability(Order $order): void
+    // Keep the existing method as it might be used elsewhere
+    public function getOrderHistory()
     {
-        if (!in_array($order->status, ['pending', 'failed'])) {
-            throw new \Exception('This order cannot be retried.');
-        }
-        
-        if ($order->payment_method !== 'midtrans') {
-            throw new \Exception('Payment retry is only available for Midtrans payments.');
-        }
+        return Order::where('user_id', Auth::id())
+            ->with(['orderItems.product', 'payment'])
+            ->latest()
+            ->get();
     }
 
-    public function retryPayment(Order $order): string
+    public function cancelOrder(Order $order)
     {
-        Log::info('Retrying payment for order', ['order_id' => $order->id]);
-        
-        $payment = $order->payment;
-        if (!$payment) {
-            $payment = Payment::create([
-                'order_id' => $order->id,
-                'payment_method' => 'midtrans',
-                'amount' => $order->total_amount,
-                'status' => 'pending',
-                'transaction_id' => $order->order_number
-            ]);
-        }
-        
-        // Generate new snap token
-        $snapToken = $this->midtransService->createSnapToken($order, $payment);
-        
-        if (!$snapToken) {
-            throw new \Exception('Failed to create payment token');
-        }
-        
-        // Update payment status to pending
-        $payment->update(['status' => 'pending']);
-        
-        return $snapToken;
-    }
-
-    public function cancelOrder(Order $order): void
-    {
-        if (!in_array($order->status, ['pending', 'failed'])) {
-            throw new \Exception('This order cannot be cancelled.');
-        }
-        
-        DB::transaction(function () use ($order) {
+        if ($order->status === 'pending') {
             $order->update(['status' => 'cancelled']);
-            
-            if ($order->payment) {
-                $order->payment->update(['status' => 'cancelled']);
+
+            // Restore product stock
+            foreach ($order->orderItems as $orderItem) {
+                $orderItem->product->increment('stock', $orderItem->quantity);
             }
-        });
-        
-        Log::info('Order cancelled by user', [
-            'order_id' => $order->id,
-            'user_id' => Auth::id()
-        ]);
+
+            return $order;
+        }
+
+        throw new \Exception('Order cannot be cancelled');
     }
 
-    private function generateOrderNumber(): string
+    public function updateOrderStatus(Order $order, string $status)
     {
-        return 'ORD-' . date('Ymd') . '-' . strtoupper(substr(md5(uniqid(rand(), true)), 0, 8));
+        $validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+        
+        if (in_array($status, $validStatuses)) {
+            $order->update(['status' => $status]);
+            return $order;
+        }
+
+        throw new \Exception('Invalid order status');
     }
 }

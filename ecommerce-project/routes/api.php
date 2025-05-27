@@ -11,7 +11,6 @@ use App\Http\Controllers\API\OrderController;
 use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\API\CartController;
 use App\Http\Controllers\API\PaymentController;
-use App\Http\Controllers\API\MidtransController;
 
 // ========== Public API Routes ==========
 Route::prefix('v1')->group(function () {
@@ -48,10 +47,6 @@ Route::prefix('v1')->group(function () {
             ]
         ]);
     });
-    
-    // Midtrans webhook notification (public - no authentication required)
-    Route::post('/midtrans/notification', [MidtransController::class, 'notification'])
-        ->name('midtrans.notification');
 });
 
 // ========== Protected API Routes (with Sanctum) ==========
