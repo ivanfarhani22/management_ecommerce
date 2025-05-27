@@ -1,385 +1,430 @@
 @extends('layouts.app')
 @section('show_back_button')
-@endsection
 
 @section('content')
-<div class="container mx-auto px-4 py-8">
-    <h1 class="text-3xl font-bold mb-6">Payment</h1>
-
-    <div class="grid md:grid-cols-3 gap-6">
-        {{-- Checkout Steps Navigation --}}
-        <div class="md:col-span-1 bg-white shadow-md rounded-lg p-4">
-            <h3 class="text-xl font-bold mb-4">Checkout Progress</h3>
-            <ul class="space-y-2">
-                <li class="text-gray-600">1. Customer Information</li>
-                <li class="text-gray-600">2. Delivery Method</li>
-                <li class="text-blue-500 font-semibold">3. Payment</li>
-                <li class="text-gray-600">4. Confirmation</li>
-            </ul>
+<div class="min-h-screen bg-gray-50">
+    <div class="max-w-6xl mx-auto px-4 py-12">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-light text-gray-900 mb-4">Complete Your Order</h1>
+            <p class="text-gray-600 font-light">Choose your preferred payment method</p>
         </div>
 
-        {{-- Payment Options --}}
-        <div class="md:col-span-2 bg-white shadow-md rounded-lg p-6">
-            <form id="payment-form" action="{{ route('checkout.store-payment') }}" method="POST">
-                @csrf
-
-                {{-- Hidden fields untuk data yang diperlukan --}}
-                @if(isset($subtotal))
-                    <input type="hidden" name="subtotal" value="{{ $subtotal }}">
-                @endif
-                @if(isset($deliveryCost))
-                    <input type="hidden" name="delivery_cost" value="{{ $deliveryCost }}">
-                @endif
-                @if(isset($total))
-                    <input type="hidden" name="total" value="{{ $total }}">
-                @endif
-                @if(isset($delivery))
-                    <input type="hidden" name="delivery_method" value="{{ $delivery['delivery_method'] ?? '' }}">
-                @endif
-
-                <div class="space-y-4">
-                    <h2 class="text-2xl font-bold mb-4">Payment Method</h2>
-
-                    {{-- Error Messages --}}
-                    @if ($errors->any())
-                        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                            <ul>
-                                @foreach ($errors->all() as $error)
-                                    <li>{{ $error }}</li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    @endif
-
-                    {{-- Success Messages --}}
-                    @if (session('success'))
-                        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-                            {{ session('success') }}
-                        </div>
-                    @endif
-
-                    <div class="grid md:grid-cols-2 gap-4">
-                        {{-- Midtrans Payment --}}
-                        <div>
-                            <input type="radio" name="payment_method" id="midtrans" 
-                                   value="midtrans" class="peer" required 
-                                   {{ old('payment_method', 'midtrans') === 'midtrans' ? 'checked' : '' }}>
-                            <label for="midtrans" 
-                                   class="block p-4 border rounded-md cursor-pointer 
-                                          hover:bg-blue-50 peer-checked:border-blue-500 peer-checked:bg-blue-50">
-                                <div class="flex items-center">
-                                    <svg class="w-8 h-8 mr-3" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
-                                    </svg>
-                                    <div>
-                                        <span class="font-semibold">Midtrans Payment</span>
-                                        <p class="text-sm text-gray-600">Credit Card, Bank Transfer, E-Wallet, etc.</p>
-                                    </div>
-                                </div>
-                            </label>
-                        </div>
-
-                        {{-- Bank Transfer Payment --}}
-                        <div>
-                            <input type="radio" name="payment_method" id="bank_transfer" 
-                                   value="bank_transfer" class="peer"
-                                   {{ old('payment_method') === 'bank_transfer' ? 'checked' : '' }}>
-                            <label for="bank_transfer" 
-                                   class="block p-4 border rounded-md cursor-pointer 
-                                          hover:bg-blue-50 peer-checked:border-blue-500 peer-checked:bg-blue-50">
-                                <div class="flex items-center">
-                                    <svg class="w-8 h-8 mr-3" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/>
-                                    </svg>
-                                    <div>
-                                        <span class="font-semibold">Manual Bank Transfer</span>
-                                        <p class="text-sm text-gray-600">Direct bank transfer</p>
-                                    </div>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-
-                    {{-- Midtrans Payment Details --}}
-                    <div id="midtrans-details" class="payment-details">
-                        <div class="bg-blue-50 border border-blue-200 p-4 rounded-md">
-                            <h3 class="font-semibold mb-2">Midtrans Payment Gateway</h3>
-                            <p class="text-gray-700">
-                                You will be redirected to Midtrans payment gateway where you can choose from various payment methods including:
-                            </p>
-                            <ul class="mt-2 text-sm text-gray-600 list-disc list-inside">
-                                <li>Credit/Debit Cards (Visa, MasterCard, JCB)</li>
-                                <li>Bank Transfer (BCA, BNI, BRI, Mandiri, Permata)</li>
-                                <li>E-Wallets (GoPay, OVO, DANA, LinkAja)</li>
-                                <li>Convenience Stores (Indomaret, Alfamart)</li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    {{-- Bank Transfer Details --}}
-                    <div id="bank-transfer-details" class="payment-details hidden">
-                        <div class="bg-blue-50 border border-blue-200 p-4 rounded-md">
-                            <h3 class="font-semibold mb-2">Bank Transfer Instructions</h3>
-                            <p class="text-gray-700">
-                                Please transfer the total amount to:
-                            </p>
-                            <div class="mt-2">
-                                <p><strong>Bank Name:</strong> Bank Central Asia (BCA)</p>
-                                <p><strong>Account Number:</strong> 1234567890</p>
-                                <p><strong>Account Name:</strong> Your Company Name</p>
+        <div class="grid lg:grid-cols-12 gap-8">
+            <!-- Progress Steps - Left Sidebar -->
+            <div class="lg:col-span-3">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-6">Order Progress</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                                <svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                </svg>
                             </div>
-                            <div class="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                                <p class="text-sm text-yellow-800">
-                                    <strong>Note:</strong> Please send proof of payment via WhatsApp or email after completing the transfer.
+                            <span class="text-sm text-green-600 font-medium">Customer Information</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                                <svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                            <span class="text-sm text-green-600 font-medium">Delivery Method</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center">
+                                <span class="text-white text-sm font-medium">3</span>
+                            </div>
+                            <span class="text-sm text-gray-900 font-medium">Payment</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                                <span class="text-gray-400 text-sm">4</span>
+                            </div>
+                            <span class="text-sm text-gray-400">Confirmation</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="lg:col-span-9">
+                <!-- Error/Success Messages -->
+                @if ($errors->any())
+                    <div class="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                            </svg>
+                            <div>
+                                @foreach ($errors->all() as $error)
+                                    <p class="text-sm text-red-700">{{ $error }}</p>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
+                @if (session('success'))
+                    <div class="bg-green-50 border border-green-200 rounded-2xl p-4 mb-6">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                            <p class="text-sm text-green-700">{{ session('success') }}</p>
+                        </div>
+                    </div>
+                @endif
+
+                <form id="payment-form" action="{{ route('checkout.store-payment') }}" method="POST" class="space-y-8">
+                    @csrf
+
+                    <!-- Hidden Fields -->
+                    @if(isset($subtotal))
+                        <input type="hidden" name="subtotal" value="{{ $subtotal }}">
+                    @endif
+                    @if(isset($deliveryCost))
+                        <input type="hidden" name="delivery_cost" value="{{ $deliveryCost }}">
+                    @endif
+                    @if(isset($total))
+                        <input type="hidden" name="total" value="{{ $total }}">
+                    @endif
+                    @if(isset($delivery))
+                        <input type="hidden" name="delivery_method" value="{{ $delivery['delivery_method'] ?? '' }}">
+                    @endif
+
+                    <!-- Payment Methods -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                        <h2 class="text-2xl font-light text-gray-900 mb-8">Select Payment Method</h2>
+                        
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <!-- Midtrans Payment -->
+                            <div class="relative">
+                                <input type="radio" name="payment_method" id="midtrans" 
+                                       value="midtrans" class="peer sr-only" required 
+                                       {{ old('payment_method', 'midtrans') === 'midtrans' ? 'checked' : '' }}>
+                                <label for="midtrans" 
+                                       class="block p-6 border-2 border-gray-200 rounded-2xl cursor-pointer 
+                                              transition-all duration-300 hover:border-gray-300 hover:shadow-md
+                                              peer-checked:border-black peer-checked:bg-gray-50">
+                                    <div class="flex flex-col items-center text-center space-y-3">
+                                        <div class="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center">
+                                            <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">Midtrans Gateway</h3>
+                                            <p class="text-sm text-gray-500 mt-1">Card, Bank Transfer, E-Wallet</p>
+                                        </div>
+                                    </div>
+                                    <div class="absolute top-4 right-4 opacity-0 peer-checked:opacity-100 transition-opacity">
+                                        <div class="w-5 h-5 bg-black rounded-full flex items-center justify-center">
+                                            <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <!-- Bank Transfer -->
+                            <div class="relative">
+                                <input type="radio" name="payment_method" id="bank_transfer" 
+                                       value="bank_transfer" class="peer sr-only"
+                                       {{ old('payment_method') === 'bank_transfer' ? 'checked' : '' }}>
+                                <label for="bank_transfer" 
+                                       class="block p-6 border-2 border-gray-200 rounded-2xl cursor-pointer 
+                                              transition-all duration-300 hover:border-gray-300 hover:shadow-md
+                                              peer-checked:border-black peer-checked:bg-gray-50">
+                                    <div class="flex flex-col items-center text-center space-y-3">
+                                        <div class="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center">
+                                            <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-medium text-gray-900">Bank Transfer</h3>
+                                            <p class="text-sm text-gray-500 mt-1">Manual bank transfer</p>
+                                        </div>
+                                    </div>
+                                    <div class="absolute top-4 right-4 opacity-0 peer-checked:opacity-100 transition-opacity">
+                                        <div class="w-5 h-5 bg-black rounded-full flex items-center justify-center">
+                                            <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Midtrans Payment Options (Show when Midtrans is selected) -->
+                    <div id="midtrans-details" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                        <h3 class="text-lg font-medium text-gray-900 mb-6">Available Payment Options</h3>
+                        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div class="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl">
+                                <div class="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/>
+                                        <path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/>
+                                    </svg>
+                                </div>
+                                <span class="text-sm font-medium text-gray-700">Credit Card</span>
+                            </div>
+                            <div class="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl">
+                                <div class="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/>
+                                    </svg>
+                                </div>
+                                <span class="text-sm font-medium text-gray-700">Bank Transfer</span>
+                            </div>
+                            <div class="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl">
+                                <div class="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+                                    </svg>
+                                </div>
+                                <span class="text-sm font-medium text-gray-700">E-Wallets</span>
+                            </div>
+                            <div class="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl">
+                                <div class="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                                    </svg>
+                                </div>
+                                <span class="text-sm font-medium text-gray-700">Retail Outlets</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bank Transfer Details (Show when Bank Transfer is selected) -->
+                    <div id="bank-transfer-details" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 hidden">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Bank Transfer Instructions</h3>
+                        <p class="text-gray-600 mb-6">Please transfer the exact amount to the following account:</p>
+                        
+                        <div class="bg-gray-50 rounded-2xl p-6 mb-6">
+                            <div class="grid sm:grid-cols-3 gap-4">
+                                <div>
+                                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Bank Name</p>
+                                    <p class="font-medium text-gray-900">Bank Central Asia</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Account Number</p>
+                                    <p class="font-medium text-gray-900 font-mono">1234567890</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Account Name</p>
+                                    <p class="font-medium text-gray-900">Your Company Name</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                            <div class="flex items-start space-x-2">
+                                <svg class="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                </svg>
+                                <p class="text-sm text-amber-800">
+                                    Please send proof of payment via WhatsApp or email after completing the transfer.
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    {{-- Order Summary --}}
-                    <div class="bg-gray-100 p-4 rounded-md mt-6">
-                        <h3 class="font-semibold mb-2">Order Summary</h3>
-                        <div class="flex justify-between mb-2">
-                            <span>Subtotal</span>
-                            <span>{{ number_format($subtotal ?? 0, 2) }} IDR</span>
-                        </div>
-                        <div class="flex justify-between mb-2">
-                            <span>Delivery ({{ ucfirst($delivery['delivery_method'] ?? 'standard') }})</span>
-                            <span>{{ number_format($deliveryCost ?? 0, 2) }} IDR</span>
-                        </div>
-                        <div class="flex justify-between font-semibold text-lg border-t pt-2 mt-2">
-                            <span>Total</span>
-                            <span>{{ number_format($total ?? 0, 2) }} IDR</span>
+                    <!-- Order Summary -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                        <h3 class="text-lg font-medium text-gray-900 mb-6">Order Summary</h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Subtotal</span>
+                                <span class="font-medium">IDR {{ number_format($subtotal ?? 0, 0, ',', '.') }}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Delivery ({{ ucfirst($delivery['delivery_method'] ?? 'standard') }})</span>
+                                <span class="font-medium">IDR {{ number_format($deliveryCost ?? 0, 0, ',', '.') }}</span>
+                            </div>
+                            <div class="border-t border-gray-200 pt-4">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-lg font-medium text-gray-900">Total</span>
+                                    <span class="text-2xl font-light text-gray-900">IDR {{ number_format($total ?? 0, 0, ',', '.') }}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="mt-4">
+                    <!-- Submit Button -->
+                    <div class="flex justify-center">
                         <button type="submit" id="submit-button"
-                                class="w-full bg-blue-500 text-white py-3 rounded-md hover:bg-blue-600 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                class="bg-black text-white px-12 py-4 rounded-2xl font-medium hover:bg-gray-800 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed min-w-[240px]">
                             <span id="submit-text">Process Payment</span>
-                            <div id="loading-spinner" class="hidden flex items-center justify-center">
-                                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <div id="loading-spinner" class="hidden flex items-center justify-center space-x-2">
+                                <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                Processing...
+                                <span>Processing...</span>
                             </div>
                         </button>
                     </div>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
     </div>
 </div>
 @endsection
 
 @push('scripts')
-{{-- Midtrans Snap.js Script --}}
-<script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="{{ config('midtrans.client_key') }}"></script>
+{{-- Load Midtrans Snap.js --}}
+@if(config('midtrans.is_production'))
+    <script src="https://app.midtrans.com/snap/snap.js" data-client-key="{{ config('midtrans.client_key') }}"></script>
+@else
+    <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="{{ config('midtrans.client_key') }}"></script>
+@endif
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const form = document.getElementById('payment-form');
-        const midtransRadio = document.getElementById('midtrans');
-        const bankTransferRadio = document.getElementById('bank_transfer');
-        const midtransDetails = document.getElementById('midtrans-details');
-        const bankTransferDetails = document.getElementById('bank-transfer-details');
-        const submitButton = document.getElementById('submit-button');
-        const submitText = document.getElementById('submit-text');
-        const loadingSpinner = document.getElementById('loading-spinner');
-        
-        // Fungsi untuk menampilkan detail pembayaran sesuai pilihan
-        function updatePaymentMethod() {
-            console.log('Updating payment method...');
-            
-            // Hide all payment details
-            midtransDetails.classList.add('hidden');
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('payment-form');
+    const midtransRadio = document.getElementById('midtrans');
+    const bankTransferRadio = document.getElementById('bank_transfer');
+    const midtransDetails = document.getElementById('midtrans-details');
+    const bankTransferDetails = document.getElementById('bank-transfer-details');
+    const submitButton = document.getElementById('submit-button');
+    const submitText = document.getElementById('submit-text');
+    const loadingSpinner = document.getElementById('loading-spinner');
+    
+    let isProcessing = false;
+    
+    // Toggle payment method details
+    function togglePaymentDetails() {
+        if (midtransRadio.checked) {
+            midtransDetails.classList.remove('hidden');
             bankTransferDetails.classList.add('hidden');
-            
-            // Show appropriate details and update button text
-            if (midtransRadio.checked) {
-                midtransDetails.classList.remove('hidden');
-                submitText.textContent = 'Process Payment';
-                console.log('Midtrans selected');
-            } else if (bankTransferRadio.checked) {
-                bankTransferDetails.classList.remove('hidden');
-                submitText.textContent = 'Complete Order';
-                console.log('Bank transfer selected');
-            }
+            submitText.textContent = 'Process Payment';
+        } else if (bankTransferRadio.checked) {
+            midtransDetails.classList.add('hidden');
+            bankTransferDetails.classList.remove('hidden');
+            submitText.textContent = 'Complete Order';
+        }
+    }
+
+    // Event listeners
+    midtransRadio.addEventListener('change', togglePaymentDetails);
+    bankTransferRadio.addEventListener('change', togglePaymentDetails);
+
+    // Initialize
+    togglePaymentDetails();
+
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (isProcessing) return;
+        
+        const selectedPaymentMethod = document.querySelector('input[name="payment_method"]:checked');
+        if (!selectedPaymentMethod) {
+            alert('Please select a payment method');
+            return;
         }
 
-        // Event listeners untuk radio buttons
-        if (midtransRadio) {
-            midtransRadio.addEventListener('change', function() {
-                console.log('Midtrans radio changed:', this.checked);
-                updatePaymentMethod();
-            });
-        }
+        isProcessing = true;
+        setLoadingState(true);
 
-        if (bankTransferRadio) {
-            bankTransferRadio.addEventListener('change', function() {
-                console.log('Bank transfer radio changed:', this.checked);
-                updatePaymentMethod();
-            });
-        }
-
-        // Initialize form dengan pilihan default
-        updatePaymentMethod();
-
-        // Handle form submission
-        if (form) {
-            form.addEventListener('submit', function(e) {
-                e.preventDefault(); // Prevent default form submission
-                console.log('Form submitted');
-                
-                // Validasi payment method
-                const selectedPaymentMethod = document.querySelector('input[name="payment_method"]:checked');
-                if (!selectedPaymentMethod) {
-                    alert('Please select a payment method');
-                    return false;
-                }
-
-                console.log('Selected payment method:', selectedPaymentMethod.value);
-
-                // Show loading state
-                if (submitButton) {
-                    submitButton.disabled = true;
-                    submitText.classList.add('hidden');
-                    loadingSpinner.classList.remove('hidden');
-                }
-
-                // Handle different payment methods
-                if (selectedPaymentMethod.value === 'midtrans') {
-                    processMidtransPayment();
-                } else if (selectedPaymentMethod.value === 'bank_transfer') {
-                    processBankTransferPayment();
-                }
-            });
-        }
-
-        // Function to handle Midtrans payment
-        function processMidtransPayment() {
-            console.log('Processing Midtrans payment...');
-            
-            // Prepare form data
-            const formData = new FormData(form);
-            
-            // Send AJAX request to get snap token
-            fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                }
-            })
-            .then(response => {
-                console.log('Response status:', response.status);
-                return response.json();
-            })
-            .then(data => {
-                console.log('Response data:', data);
-                
-                if (data.success && data.snap_token) {
-                    // Open Midtrans Snap
-                    snap.pay(data.snap_token, {
-                        onSuccess: function(result) {
-                            console.log('Payment success:', result);
-                            // Redirect to success page or show success message
-                            if (data.redirect_url) {
-                                window.location.href = data.redirect_url;
-                            } else {
-                                alert('Payment successful!');
-                                location.reload();
-                            }
-                        },
-                        onPending: function(result) {
-                            console.log('Payment pending:', result);
-                            alert('Payment pending. Please complete your payment.');
-                            if (data.redirect_url) {
-                                window.location.href = data.redirect_url;
-                            }
-                        },
-                        onError: function(result) {
-                            console.log('Payment error:', result);
-                            alert('Payment failed. Please try again.');
-                            resetFormState();
-                        },
-                        onClose: function() {
-                            console.log('Payment popup closed');
-                            resetFormState();
-                        }
-                    });
-                } else {
-                    console.error('Error:', data.message || 'Failed to get payment token');
-                    alert(data.message || 'Failed to process payment. Please try again.');
-                    resetFormState();
-                }
-            })
-            .catch(error => {
-                console.error('Fetch error:', error);
-                alert('Network error. Please check your connection and try again.');
-                resetFormState();
-            });
-        }
-
-        // Function to handle bank transfer payment
-        function processBankTransferPayment() {
-            console.log('Processing bank transfer payment...');
-            
-            // For bank transfer, submit form normally
-            const formData = new FormData(form);
-            
-            fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    if (data.redirect_url) {
-                        window.location.href = data.redirect_url;
-                    } else {
-                        alert('Order placed successfully! Please complete the bank transfer.');
-                    }
-                } else {
-                    alert(data.message || 'Failed to process order. Please try again.');
-                    resetFormState();
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Network error. Please try again.');
-                resetFormState();
-            });
-        }
-
-        // Function to reset form state
-        function resetFormState() {
-            if (submitButton) {
-                submitButton.disabled = false;
-                submitText.classList.remove('hidden');
-                loadingSpinner.classList.add('hidden');
-            }
-        }
-
-        // Debug: Log form action
-        if (form) {
-            console.log('Form action:', form.action);
-            console.log('Form method:', form.method);
-        }
-
-        // Add CSRF token meta tag if not exists
-        if (!document.querySelector('meta[name="csrf-token"]')) {
-            const meta = document.createElement('meta');
-            meta.name = 'csrf-token';
-            meta.content = document.querySelector('input[name="_token"]').value;
-            document.getElementsByTagName('head')[0].appendChild(meta);
+        if (selectedPaymentMethod.value === 'midtrans') {
+            processMidtransPayment();
+        } else {
+            processBankTransferPayment();
         }
     });
+
+    function processMidtransPayment() {
+        const formData = new FormData(form);
+        
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.snap_token) {
+                // Directly open Midtrans payment popup
+                window.snap.pay(data.snap_token, {
+                    onSuccess: function(result) {
+                        window.location.href = data.redirect_url || '/checkout/success';
+                    },
+                    onPending: function(result) {
+                        window.location.href = data.redirect_url || '/checkout/pending';
+                    },
+                    onError: function(result) {
+                        alert('Payment failed. Please try again.');
+                        resetFormState();
+                    },
+                    onClose: function() {
+                        resetFormState();
+                    }
+                });
+            } else {
+                alert(data.message || 'Failed to initialize payment');
+                resetFormState();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to process payment. Please try again.');
+            resetFormState();
+        });
+    }
+
+    function processBankTransferPayment() {
+        const formData = new FormData(form);
+        
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = data.redirect_url || '/checkout/success';
+            } else {
+                alert(data.message || 'Failed to create order');
+                resetFormState();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to process order. Please try again.');
+            resetFormState();
+        });
+    }
+
+    function setLoadingState(loading) {
+        if (loading) {
+            submitText.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+            submitButton.disabled = true;
+        } else {
+            submitText.classList.remove('hidden');
+            loadingSpinner.classList.add('hidden');
+            submitButton.disabled = false;
+        }
+    }
+
+    function resetFormState() {
+        isProcessing = false;
+        setLoadingState(false);
+    }
+});
 </script>
 @endpush

@@ -27,21 +27,6 @@
             100% { transform: translateX(-100%); }
         }
         
-        /* Menghilangkan border biru default saat diklik/focus */
-        *:focus {
-            outline: none !important;
-            box-shadow: none !important;
-        }
-        
-        /* Custom focus styles yang lebih subtle */
-        input:focus,
-        button:focus,
-        select:focus,
-        textarea:focus {
-            outline: none !important;
-            border-color: #374151 !important;
-            box-shadow: 0 0 0 1px #374151 !important;
-        }
     </style>
 </head>
 <body class="bg-white text-gray-900 antialiased font-light">
@@ -365,7 +350,7 @@
                 }
 
                 const resultsHTML = products.map(product => `
-                    <div class="p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors duration-200 last:border-b-0" onclick="window.location.href='{{ route('products.detail', '') }}/${product.id}'">
+                    <div class="p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors duration-200 last:border-b-0" onclick="window.location.href='{{ route('products.show', '') }}/${product.id}'">
                         <div class="font-normal text-gray-800 text-sm mb-1">${product.name}</div>
                         <div class="text-xs text-gray-500">Rp${parseFloat(product.price).toLocaleString()}</div>
                     </div>

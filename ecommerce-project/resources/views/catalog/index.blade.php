@@ -97,7 +97,7 @@
                                             </div>
                                         </div>
                                         
-                                        <a href="{{ route('products.detail', ['id' => $product->id]) }}" 
+                                        <a href="{{ route('products.show', $product) }}" 
                                            class="px-4 py-2 bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors duration-200 rounded"
                                         >
                                             View

@@ -6,25 +6,29 @@ use App\Http\Controllers\Controller;
 use App\Services\OrderService;
 use App\Services\CartService;
 use App\Services\MidtransService;
+use App\Services\CheckoutService;
 use App\Models\Address;
 use App\Models\Order;
-use App\Models\OrderItem;
-use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 
 class CheckoutController extends Controller
 {
-    protected $orderService;
+    protected $checkoutService;
     protected $cartService;
+    protected $orderService;
     protected $midtransService;
 
-    public function __construct(OrderService $orderService, CartService $cartService, MidtransService $midtransService)
-    {
-        $this->orderService = $orderService;
+    public function __construct(
+        CheckoutService $checkoutService,
+        CartService $cartService,
+        OrderService $orderService,
+        MidtransService $midtransService
+    ) {
+        $this->checkoutService = $checkoutService;
         $this->cartService = $cartService;
+        $this->orderService = $orderService;
         $this->midtransService = $midtransService;
     }
 
@@ -33,8 +37,7 @@ class CheckoutController extends Controller
         try {
             $cart = $this->cartService->getCart();
             
-            // Check if cart is empty
-            if (!$cart || !$cart->cartItems || $cart->cartItems->isEmpty()) {
+            if (!$this->cartService->isCartValid($cart)) {
                 return redirect()->route('cart.index')
                     ->with('error', 'Your cart is empty. Please add items before checkout.');
             }
@@ -53,17 +56,8 @@ class CheckoutController extends Controller
     public function processCustomerInfo(Request $request)
     {
         try {
-            $request->validate([
-                'first_name' => 'required|string|max:255',
-                'last_name' => 'required|string|max:255',
-                'email' => 'required|email|max:255',
-                'phone' => 'required|string|max:20',
-                'address_id' => 'nullable|exists:addresses,id',
-            ]);
-
-            session()->put('checkout.customer_info', $request->only([
-                'first_name', 'last_name', 'email', 'phone', 'address_id'
-            ]));
+            $validatedData = $this->checkoutService->validateCustomerInfo($request);
+            $this->checkoutService->storeCustomerInfo($validatedData);
 
             return redirect()->route('checkout.delivery');
         } catch (\Exception $e) {
@@ -75,21 +69,13 @@ class CheckoutController extends Controller
     public function delivery()
     {
         try {
-            $customerInfo = session('checkout.customer_info');
-
-            if (!$customerInfo) {
+            if (!$this->checkoutService->hasCustomerInfo()) {
                 return redirect()->route('checkout.index')
                     ->with('error', 'Please complete customer information first.');
             }
 
-            $cart = $this->cartService->getCart();
-            $total = $this->cartService->calculateCartTotal();
-            $deliveryOptions = [
-                'standard' => ['name' => 'Standard Delivery', 'price' => 5.00, 'days' => '3-5'],
-                'express' => ['name' => 'Express Delivery', 'price' => 15.00, 'days' => '1-2'],
-            ];
-
-            return view('checkout.delivery', compact('customerInfo', 'cart', 'total', 'deliveryOptions'));
+            $data = $this->checkoutService->getDeliveryPageData();
+            return view('checkout.delivery', $data);
         } catch (\Exception $e) {
             Log::error('Checkout delivery error: ' . $e->getMessage());
             return redirect()->route('checkout.index')
@@ -100,40 +86,8 @@ class CheckoutController extends Controller
     public function storeDelivery(Request $request)
     {
         try {
-            $request->validate([
-                'delivery_method' => 'required|string|in:standard,express',
-                'address' => 'required|string',
-                'city' => 'required|string',
-                'state' => 'required|string',
-                'postal_code' => 'required|string',
-                'country' => 'required|string',
-            ]);
-
-            // Store delivery info in session
-            $deliveryInfo = $request->only([
-                'delivery_method', 'address', 'city', 'state', 'postal_code', 'country'
-            ]);
-            
-            session()->put('checkout.delivery', $deliveryInfo);
-            
-            // Create a new address if no address_id is selected
-            $customerInfo = session('checkout.customer_info');
-            if (empty($customerInfo['address_id'])) {
-                $address = new Address([
-                    'user_id' => Auth::id(),
-                    'street_address' => $request->address,
-                    'city' => $request->city,
-                    'state' => $request->state,
-                    'postal_code' => $request->postal_code,
-                    'country' => $request->country,
-                    'is_default' => false
-                ]);
-                $address->save();
-                
-                // Update customer info with the new address ID
-                $customerInfo['address_id'] = $address->id;
-                session()->put('checkout.customer_info', $customerInfo);
-            }
+            $validatedData = $this->checkoutService->validateDeliveryInfo($request);
+            $this->checkoutService->storeDeliveryInfo($validatedData);
 
             return redirect()->route('checkout.payment');
         } catch (\Exception $e) {
@@ -145,36 +99,13 @@ class CheckoutController extends Controller
     public function payment()
     {
         try {
-            $customerInfo = session('checkout.customer_info');
-            $delivery = session('checkout.delivery');
-
-            if (!$customerInfo || !$delivery) {
+            if (!$this->checkoutService->hasRequiredSessionData()) {
                 return redirect()->route('checkout.index')
                     ->with('error', 'Please complete previous steps first.');
             }
 
-            $cart = $this->cartService->getCart();
-            
-            // Check if cart is still valid
-            if (!$cart || !$cart->cartItems || $cart->cartItems->isEmpty()) {
-                return redirect()->route('cart.index')
-                    ->with('error', 'Your cart is empty. Please add items before checkout.');
-            }
-            
-            $subtotal = $this->cartService->calculateCartTotal();
-            
-            // Calculate delivery cost based on selected method
-            $deliveryCost = $delivery['delivery_method'] === 'express' ? 15.00 : 5.00;
-            $total = $subtotal + $deliveryCost;
-
-            $paymentMethods = [
-                'midtrans' => 'Midtrans Payment Gateway',
-                'bank_transfer' => 'Manual Bank Transfer',
-            ];
-
-            return view('checkout.payment', compact(
-                'customerInfo', 'delivery', 'cart', 'subtotal', 'deliveryCost', 'total', 'paymentMethods'
-            ));
+            $data = $this->checkoutService->getPaymentPageData();
+            return view('checkout.payment', $data);
         } catch (\Exception $e) {
             Log::error('Checkout payment page error: ' . $e->getMessage());
             return redirect()->route('checkout.index')
@@ -185,84 +116,13 @@ class CheckoutController extends Controller
     public function storePayment(Request $request)
     {
         try {
-            Log::info('Store payment method called', ['request_data' => $request->all()]);
+            $validatedData = $this->checkoutService->validatePaymentInfo($request);
+            $this->checkoutService->storePaymentInfo($validatedData);
 
-            $request->validate([
-                'payment_method' => 'required|string|in:midtrans,bank_transfer',
-                'payment_details' => 'nullable|string',
-                'total' => 'required|numeric|min:0',
-            ]);
-
-            $customerInfo = session('checkout.customer_info');
-            $delivery = session('checkout.delivery');
-
-            if (!$customerInfo || !$delivery) {
-                Log::error('Session data missing', [
-                    'customer_info' => $customerInfo,
-                    'delivery' => $delivery
-                ]);
-                
-                if ($request->ajax()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Session expired. Please complete previous steps first.',
-                        'redirect' => route('checkout.index')
-                    ], 400);
-                }
-                
-                return redirect()->route('checkout.index')
-                    ->with('error', 'Please complete previous steps first.');
-            }
-
-            // Verify cart is still valid
-            $cart = $this->cartService->getCart();
-            if (!$cart || !$cart->cartItems || $cart->cartItems->isEmpty()) {
-                Log::error('Cart is empty during payment processing');
-                
-                if ($request->ajax()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Your cart is empty. Please add items before checkout.',
-                        'redirect' => route('cart.index')
-                    ], 400);
-                }
-                
-                return redirect()->route('cart.index')
-                    ->with('error', 'Your cart is empty. Please add items before checkout.');
-            }
-
-            // Verify total amount matches calculated total
-            $subtotal = $this->cartService->calculateCartTotal();
-            $deliveryCost = $delivery['delivery_method'] === 'express' ? 15.00 : 5.00;
-            $expectedTotal = $subtotal + $deliveryCost;
-
-            if (abs($request->total - $expectedTotal) > 0.01) {
-                Log::error('Total amount mismatch', [
-                    'expected' => $expectedTotal,
-                    'received' => $request->total
-                ]);
-                
-                if ($request->ajax()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Total amount mismatch. Please refresh and try again.'
-                    ], 400);
-                }
-                
-                return back()->with('error', 'Total amount mismatch. Please refresh and try again.');
-            }
-
-            // Store payment info in session
-            session()->put('checkout.payment', $request->only(['payment_method', 'payment_details']));
-
-            Log::info('Payment method selected', ['method' => $request->payment_method]);
-
-            // If midtrans payment, create order and redirect to payment process
-            if ($request->payment_method === 'midtrans') {
+            if ($validatedData['payment_method'] === 'midtrans') {
                 return $this->processMidtransPayment($request);
             }
 
-            // For manual bank transfer, go to confirmation
             if ($request->ajax()) {
                 return response()->json([
                     'success' => true,
@@ -272,23 +132,8 @@ class CheckoutController extends Controller
 
             return redirect()->route('checkout.confirmation');
             
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::error('Validation error in store payment', ['errors' => $e->errors()]);
-            
-            if ($request->ajax()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $e->errors()
-                ], 422);
-            }
-            
-            return back()->withErrors($e->errors());
-            
         } catch (\Exception $e) {
-            Log::error('Store payment error: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
+            Log::error('Store payment error: ' . $e->getMessage());
             
             if ($request->ajax()) {
                 return response()->json([
@@ -303,105 +148,24 @@ class CheckoutController extends Controller
 
     protected function processMidtransPayment($request = null)
     {
-        $customerInfo = session('checkout.customer_info');
-        $delivery = session('checkout.delivery');
-        $payment = session('checkout.payment');
-
         try {
-            Log::info('Starting Midtrans payment process');
-
-            // Calculate totals
-            $cart = $this->cartService->getCart();
+            $orderData = $this->checkoutService->prepareOrderData();
+            $order = $this->orderService->createOrder($orderData);
             
-            // Double check cart validity
-            if (!$cart || !$cart->cartItems || $cart->cartItems->isEmpty()) {
-                throw new \Exception('Cart is empty or invalid');
-            }
+            $snapToken = $this->midtransService->createSnapToken($order, $order->payment);
             
-            $subtotal = $this->cartService->calculateCartTotal();
-            $deliveryCost = $delivery['delivery_method'] === 'express' ? 15.00 : 5.00;
-            $total = $subtotal + $deliveryCost;
-
-            // Get address
-            $address = Address::find($customerInfo['address_id']);
-            if (!$address) {
-                throw new \Exception('Delivery address not found');
-            }
-
-            // Start database transaction
-            DB::beginTransaction();
-
-            // Create the order
-            $order = new Order([
-                'user_id' => Auth::id(),
-                'address_id' => $customerInfo['address_id'],
-                'total_amount' => $total,
-                'status' => 'pending',
-                'shipping_name' => $customerInfo['first_name'] . ' ' . $customerInfo['last_name'],
-                'shipping_address' => $address->street_address,
-                'shipping_city' => $address->city,
-                'shipping_state' => $address->state,
-                'shipping_postal_code' => $address->postal_code,
-                'shipping_country' => $address->country,
-                'payment_method' => $payment['payment_method'],
-                'order_number' => 'ORD-' . strtoupper(substr(md5(uniqid()), 0, 8))
-            ]);
-            $order->save();
-
-            Log::info('Order created for Midtrans payment', ['order_id' => $order->id]);
-
-            // Create order items
-            foreach ($cart->cartItems as $cartItem) {
-                if (!$cartItem->product) {
-                    throw new \Exception('Product not found for cart item: ' . $cartItem->id);
-                }
-                
-                $orderItem = new OrderItem([
-                    'order_id' => $order->id,
-                    'product_id' => $cartItem->product_id,
-                    'quantity' => $cartItem->quantity,
-                    'price' => $cartItem->product->price,
-                    'subtotal' => $cartItem->quantity * $cartItem->product->price,
-                    'product_name' => $cartItem->product->name
-                ]);
-                $orderItem->save();
-            }
-
-            // Create payment record
-            $paymentRecord = new Payment([
-                'order_id' => $order->id,
-                'payment_method' => $payment['payment_method'],
-                'amount' => $total,
-                'status' => 'pending',
-                'transaction_id' => 'TXN-' . strtoupper(substr(md5(uniqid()), 0, 12))
-            ]);
-            $paymentRecord->save();
-
-            // Create Midtrans Snap Token
-            $snapToken = $this->midtransService->createSnapToken($order, $paymentRecord);
-
             if (!$snapToken) {
                 throw new \Exception('Failed to create Midtrans snap token');
             }
 
-            // Commit transaction
-            DB::commit();
-
-            Log::info('Midtrans payment process initiated successfully', [
-                'order_id' => $order->id, 
-                'snap_token' => $snapToken
-            ]);
-
-            // Clear checkout session data
-            session()->forget(['checkout.customer_info', 'checkout.delivery', 'checkout.payment']);
-            
-            // Clear the cart
+            $this->checkoutService->clearSession();
             $this->cartService->clearCart();
 
-            // Return JSON response for AJAX requests
             if ($request && $request->ajax()) {
                 return response()->json([
                     'success' => true,
+                    'snap_token' => $snapToken,
+                    'order_id' => $order->id,
                     'redirect' => route('midtrans.payment.process', [
                         'order' => $order->id,
                         'snap_token' => $snapToken
@@ -409,21 +173,14 @@ class CheckoutController extends Controller
                 ]);
             }
 
-            // Redirect to Midtrans payment process
             return redirect()->route('midtrans.payment.process', [
                 'order' => $order->id,
                 'snap_token' => $snapToken
             ]);
 
         } catch (\Exception $e) {
-            DB::rollBack();
+            Log::error('Midtrans payment process failed: ' . $e->getMessage());
             
-            Log::error('Midtrans payment process failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            // Return JSON response for AJAX requests
             if ($request && $request->ajax()) {
                 return response()->json([
                     'success' => false,
@@ -435,77 +192,44 @@ class CheckoutController extends Controller
         }
     }
 
+    public function midtransPaymentProcess(Request $request)
+    {
+        try {
+            $orderId = $request->route('order');
+            $snapToken = $request->route('snap_token');
+
+            if (!$orderId || !$snapToken) {
+                throw new \Exception('Missing order ID or snap token');
+            }
+
+            $order = Order::where('id', $orderId)
+                         ->where('user_id', Auth::id())
+                         ->with(['items', 'payment'])
+                         ->firstOrFail();
+
+            $config = $this->midtransService->getClientConfig();
+
+            return view('checkout.midtrans-payment', compact(
+                'order', 'snapToken'
+            ) + $config);
+
+        } catch (\Exception $e) {
+            Log::error('Error loading Midtrans payment page: ' . $e->getMessage());
+            return redirect()->route('checkout.index')
+                ->with('error', 'Unable to load payment page: ' . $e->getMessage());
+        }
+    }
+
     public function confirmation()
     {
         try {
-            $customerInfo = session('checkout.customer_info');
-            $delivery = session('checkout.delivery');
-            $payment = session('checkout.payment');
-
-            if (!$customerInfo || !$delivery || !$payment) {
+            if (!$this->checkoutService->hasCompleteSessionData()) {
                 return redirect()->route('checkout.index')
                     ->with('error', 'Please complete previous steps first.');
             }
 
-            $cart = $this->cartService->getCart();
-            
-            // Check if cart is still valid
-            if (!$cart || !$cart->cartItems || $cart->cartItems->isEmpty()) {
-                return redirect()->route('cart.index')
-                    ->with('error', 'Your cart is empty. Please add items before checkout.');
-            }
-            
-            $subtotal = $this->cartService->calculateCartTotal();
-            
-            // Calculate delivery cost based on selected method
-            $deliveryCost = $delivery['delivery_method'] === 'express' ? 15.00 : 5.00;
-            $total = $subtotal + $deliveryCost;
-
-            // Get address details
-            $address = Address::find($customerInfo['address_id']);
-            
-            if (!$address) {
-                return redirect()->route('checkout.index')
-                    ->with('error', 'Delivery address not found. Please select an address.');
-            }
-
-            $deliveryMethods = [
-                'standard' => ['name' => 'Standard Delivery', 'price' => 5.00, 'days' => '3-5'],
-                'express' => ['name' => 'Express Delivery', 'price' => 15.00, 'days' => '1-2'],
-            ];
-
-            $paymentMethods = [
-                'midtrans' => 'Midtrans Payment Gateway',
-                'bank_transfer' => 'Manual Bank Transfer',
-            ];
-
-            // Create an order preview object with the necessary properties
-            $orderPreview = new \stdClass();
-            $orderPreview->order_number = 'ORD-' . strtoupper(substr(md5(uniqid()), 0, 8));
-            $orderPreview->created_at = now();
-            $orderPreview->shipping_name = $customerInfo['first_name'] . ' ' . $customerInfo['last_name'];
-            $orderPreview->shipping_address = $address->street_address;
-            $orderPreview->shipping_city = $address->city;
-            $orderPreview->shipping_state = $address->state;
-            $orderPreview->shipping_postal_code = $address->postal_code;
-            $orderPreview->shipping_country = $address->country;
-            $orderPreview->payment_method = $payment['payment_method'];
-            $orderPreview->total_amount = $total;
-            
-            $cartItems = $cart->cartItems;
-            $orderPreview->items = collect($cartItems)->map(function($item) {
-                return (object)[
-                    'product_name' => $item->product->name,
-                    'quantity' => $item->quantity,
-                    'price' => $item->product->price,
-                    'subtotal' => $item->quantity * $item->product->price
-                ];
-            });
-            
-            return view('checkout.confirmation', compact(
-                'customerInfo', 'delivery', 'payment', 'cart', 'subtotal',
-                'deliveryCost', 'total', 'address', 'deliveryMethods', 'paymentMethods', 'orderPreview'
-            ));
+            $data = $this->checkoutService->getConfirmationPageData();
+            return view('checkout.confirmation', $data);
         } catch (\Exception $e) {
             Log::error('Checkout confirmation error: ' . $e->getMessage());
             return redirect()->route('checkout.index')
@@ -513,150 +237,152 @@ class CheckoutController extends Controller
         }
     }
 
+    public function complete(Request $request)
+    {
+        try {
+            if (!$this->checkoutService->canCompleteOrder()) {
+                return redirect()->route('checkout.index')
+                    ->with('error', 'Please complete all checkout steps first.');
+            }
+
+            $orderData = $this->checkoutService->prepareOrderData();
+            $order = $this->orderService->createOrder($orderData);
+
+            $this->checkoutService->clearSession();
+            $this->cartService->clearCart();
+
+            return redirect()->route('checkout.success', $order->id)
+                ->with('success', 'Order placed successfully! Please complete your bank transfer payment.');
+                
+        } catch (\Exception $e) {
+            Log::error('Complete order error: ' . $e->getMessage());
+            return back()->with('error', 'Failed to complete order: ' . $e->getMessage());
+        }
+    }
+
     public function success($orderId)
     {
         try {
-            // Find order and ensure it belongs to logged in user
             $order = Order::where('id', $orderId)
                           ->where('user_id', Auth::id())
+                          ->with(['items', 'payment'])
                           ->firstOrFail();
-            
-            // Load order items
-            $order->load('items');
-            
-            // Log for debugging
-            Log::info('Viewing success page', ['order_id' => $order->id, 'items_count' => $order->items->count()]);
             
             return view('checkout.success', compact('order'));
         } catch (\Exception $e) {
-            Log::error('Error viewing success page', ['error' => $e->getMessage()]);
+            Log::error('Error viewing success page: ' . $e->getMessage());
             return redirect()->route('orders.index')->with('error', 'Order not found');
         }
     }
 
-    public function complete(Request $request)
+    // Payment callback handlers
+    public function midtransCallback(Request $request)
     {
-        $customerInfo = session('checkout.customer_info');
-        $delivery = session('checkout.delivery');
-        $payment = session('checkout.payment');
-
-        if (!$customerInfo || !$delivery || !$payment) {
-            return redirect()->route('checkout.index')
-                ->with('error', 'Please complete all checkout steps first.');
-        }
-
-        // Only handle manual bank transfer here (Midtrans is handled in storePayment)
-        if ($payment['payment_method'] !== 'bank_transfer') {
-            return redirect()->route('checkout.index')
-                ->with('error', 'Invalid payment method for this process.');
-        }
-
         try {
-            // Debug logs
-            Log::info('Attempting to create order for bank transfer', [
-                'customerInfo' => $customerInfo, 
-                'delivery' => $delivery, 
-                'payment' => $payment
-            ]);
+            Log::info('Midtrans callback received', ['payload' => $request->all()]);
             
-            // Calculate cart total
-            $cart = $this->cartService->getCart();
+            $result = $this->midtransService->handleNotification($request->all());
             
-            // Check if cart is empty
-            if (!$cart || !$cart->cartItems || $cart->cartItems->isEmpty()) {
-                Log::error('Cart is empty or items missing', ['cart' => $cart]);
-                return redirect()->route('cart.index')
-                    ->with('error', 'Your cart is empty. Please add items before checkout.');
-            }
-            
-            $subtotal = $this->cartService->calculateCartTotal();
-            $deliveryCost = $delivery['delivery_method'] === 'express' ? 15.00 : 5.00;
-            $total = $subtotal + $deliveryCost;
-            
-            // Get address
-            $address = Address::find($customerInfo['address_id']);
-            if (!$address) {
-                throw new \Exception('Delivery address not found');
-            }
-            
-            // Start database transaction to ensure data integrity
-            DB::beginTransaction();
-            
-            // Create the order
-            $order = new Order([
-                'user_id' => Auth::id(),
-                'address_id' => $customerInfo['address_id'],
-                'total_amount' => $total,
-                'status' => 'pending',
-                'shipping_name' => $customerInfo['first_name'] . ' ' . $customerInfo['last_name'],
-                'shipping_address' => $address->street_address,
-                'shipping_city' => $address->city,
-                'shipping_state' => $address->state,
-                'shipping_postal_code' => $address->postal_code,
-                'shipping_country' => $address->country,
-                'payment_method' => $payment['payment_method'],
-                'order_number' => 'ORD-' . strtoupper(substr(md5(uniqid()), 0, 8))
-            ]);
-            $order->save();
-            
-            // Logging for debugging
-            Log::info('Order created', ['order_id' => $order->id]);
-            
-            // Create order items
-            foreach ($cart->cartItems as $cartItem) {
-                if (!$cartItem->product) {
-                    throw new \Exception('Product not found for cart item: ' . $cartItem->id);
-                }
+            return $result 
+                ? response('OK', 200)
+                : response('Error processing notification', 500);
                 
-                Log::info('Processing cart item', ['cart_item_id' => $cartItem->id, 'product' => $cartItem->product->name]);
-                
-                $orderItem = new OrderItem([
-                    'order_id' => $order->id,
-                    'product_id' => $cartItem->product_id,
-                    'quantity' => $cartItem->quantity,
-                    'price' => $cartItem->product->price,
-                    'subtotal' => $cartItem->quantity * $cartItem->product->price,
-                    'product_name' => $cartItem->product->name
-                ]);
-                $orderItem->save();
-                
-                Log::info('Order item created', ['order_item_id' => $orderItem->id]);
-            }
+        } catch (\Exception $e) {
+            Log::error('Midtrans callback error: ' . $e->getMessage());
+            return response('Error processing callback', 500);
+        }
+    }
+
+    public function midtransFinish(Request $request)
+    {
+        return $this->handleMidtransRedirect($request, 'finish');
+    }
+
+    public function midtransUnfinish(Request $request)
+    {
+        return $this->handleMidtransRedirect($request, 'unfinish');
+    }
+
+    public function midtransError(Request $request)
+    {
+        return $this->handleMidtransRedirect($request, 'error');
+    }
+
+    private function handleMidtransRedirect(Request $request, string $type)
+    {
+        try {
+            $orderId = $request->query('order_id');
+            $redirectService = new \App\Services\MidtransRedirectService();
             
-            // Create payment record
-            $paymentRecord = new Payment([
-                'order_id' => $order->id,
-                'payment_method' => $payment['payment_method'],
-                'amount' => $total,
-                'status' => 'pending',
-                'transaction_id' => 'TXN-' . strtoupper(substr(md5(uniqid()), 0, 12))
-            ]);
-            $paymentRecord->save();
-
-            // Commit transaction
-            DB::commit();
-
-            Log::info('Order creation completed successfully', ['order_id' => $order->id]);
-
-            // Clear checkout session data
-            session()->forget(['checkout.customer_info', 'checkout.delivery', 'checkout.payment']);
-            
-            // Clear the cart
-            $this->cartService->clearCart();
-
-            // Redirect to success page for bank transfer
-            return redirect()->route('checkout.success', ['order' => $order->id]);
+            return $redirectService->handle($type, $orderId, $request->all());
             
         } catch (\Exception $e) {
-            // Rollback transaction if error occurs
-            DB::rollBack();
+            Log::error("Midtrans {$type} redirect error: " . $e->getMessage());
+            return redirect()->route('cart.index')
+                ->with('error', 'Error processing payment redirect.');
+        }
+    }
+
+    // Order management
+    public function retryPayment(Order $order)
+    {
+        try {
+            $this->orderService->validateOrderOwnership($order);
+            $this->orderService->validateRetryability($order);
             
-            Log::error('Order creation failed', [
-                'error' => $e->getMessage(), 
-                'trace' => $e->getTraceAsString()
+            $snapToken = $this->orderService->retryPayment($order);
+            
+            return redirect()->route('midtrans.payment.process', [
+                'order' => $order->id,
+                'snap_token' => $snapToken
             ]);
             
-            return back()->with('error', 'Order creation failed: ' . $e->getMessage());
+        } catch (\Exception $e) {
+            Log::error('Retry payment error: ' . $e->getMessage());
+            return redirect()->route('orders.show', $order->id)
+                ->with('error', 'Failed to retry payment: ' . $e->getMessage());
+        }
+    }
+
+    public function cancelOrder(Order $order)
+    {
+        try {
+            $this->orderService->validateOrderOwnership($order);
+            $this->orderService->cancelOrder($order);
+            
+            return redirect()->route('orders.index')
+                ->with('success', 'Order has been cancelled successfully.');
+                
+        } catch (\Exception $e) {
+            Log::error('Cancel order error: ' . $e->getMessage());
+            return redirect()->route('orders.show', $order->id)
+                ->with('error', 'Failed to cancel order: ' . $e->getMessage());
+        }
+    }
+
+    // AJAX endpoints
+    public function getProgress()
+    {
+        return response()->json($this->checkoutService->getProgress());
+    }
+
+    public function clearSession()
+    {
+        try {
+            $this->checkoutService->clearSession();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Checkout session cleared successfully'
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Clear checkout session error: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to clear session'
+            ], 500);
         }
     }
 }

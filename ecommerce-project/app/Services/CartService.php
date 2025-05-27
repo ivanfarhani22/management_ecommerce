@@ -64,4 +64,17 @@ class CartService
     $cart->cartItems()->delete();
     return true;
 }
+
+/**
+ * Check if the cart is valid (not empty and has items)
+ *
+ * @param mixed $cart
+ * @return bool
+ */
+public function isCartValid($cart): bool
+{
+    return $cart && 
+           isset($cart->cartItems) && 
+           $cart->cartItems->isNotEmpty();
+}
 }

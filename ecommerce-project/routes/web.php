@@ -38,7 +38,6 @@ Route::get('/catalog/category/{category}', [CatalogController::class, 'category'
 // Product Routes
 Route::get('/products', [ProductController::class, 'index'])->name('products.index');
 Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show');
-Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.detail');
 
 // Authentication Routes
 Route::middleware(['guest'])->group(function () {
@@ -92,9 +91,26 @@ Route::middleware(['auth'])->group(function () {
         // Success page
         Route::get('/success/{order}', [CheckoutController::class, 'success'])->name('checkout.success');
         
-        // Midtrans Payment Processing Routes
-        Route::get('/payment/process/{order}/{snap_token}', [MidtransController::class, 'paymentProcess'])
-            ->name('checkout.payment.process');
+        // Additional checkout status pages
+        Route::get('/pending/{order}', function($orderId) {
+            return view('checkout.pending', compact('orderId'));
+        })->name('checkout.pending');
+        
+        Route::get('/failed/{order}', function($orderId) {
+            return view('checkout.failed', compact('orderId'));
+        })->name('checkout.failed');
+        
+        // Midtrans Payment Processing Routes (Fixed)
+        Route::get('/payment/midtrans/{order}/{snap_token}', [CheckoutController::class, 'midtransPaymentProcess'])
+            ->name('midtrans.payment.process');
+            
+        // Payment status check
+        Route::get('/payment/status/{order}', [CheckoutController::class, 'checkPaymentStatus'])
+            ->name('checkout.payment.status');
+            
+        // Clear checkout session
+        Route::post('/clear-session', [CheckoutController::class, 'clearSession'])
+            ->name('checkout.clear-session');
     });
 
     // Order Routes
@@ -105,21 +121,27 @@ Route::middleware(['auth'])->group(function () {
 
     // Order confirmation email endpoint
     Route::post('/orders/{order}/send-confirmation', [OrderController::class, 'sendConfirmation'])->name('orders.send-confirmation');
-    
-    // Midtrans Status Check (Authenticated)
-    Route::get('/midtrans/status/{transaction_id}', [MidtransController::class, 'checkStatus'])
-        ->name('midtrans.status');
 });
 
-// Midtrans Public Routes (No authentication required)
+// Midtrans Routes (Public - No authentication required for callbacks)
 Route::prefix('midtrans')->group(function () {
     // Midtrans webhook notification (public)
-    Route::post('/notification', [MidtransController::class, 'notification'])
+    Route::post('/notification', [CheckoutController::class, 'midtransCallback'])
         ->name('midtrans.notification');
     
-    // Midtrans finish redirect (public)
-    Route::get('/finish', [MidtransController::class, 'finish'])
+    // Midtrans redirect routes (public)
+    Route::get('/finish', [CheckoutController::class, 'midtransFinish'])
         ->name('midtrans.finish');
+        
+    Route::get('/unfinish', [CheckoutController::class, 'midtransUnfinish'])
+        ->name('midtrans.unfinish');
+        
+    Route::get('/error', [CheckoutController::class, 'midtransError'])
+        ->name('midtrans.error');
+        
+    // Status check (can be public for webhook verification)
+    Route::get('/status/{transaction_id}', [MidtransController::class, 'checkStatus'])
+        ->name('midtrans.status');
 });
 
 // Profile Routes
@@ -178,12 +200,21 @@ Route::prefix('chatbot')->controller(ChatbotController::class)->group(function (
     Route::post('/clear-history', 'clearHistory');
 });
 
+// Development/Testing Routes (Remove in production)
 Route::get('/test-midtrans', function() {
+    if (!app()->environment('local')) {
+        abort(404);
+    }
+    
     $midtransService = new App\Services\MidtransService();
     return response()->json($midtransService->testConfiguration());
 });
 
 Route::get('/test-snap-token', function() {
+    if (!app()->environment('local')) {
+        abort(404);
+    }
+    
     try {
         // Ambil order dan payment yang ada untuk test
         $order = App\Models\Order::with(['items', 'user'])->first();
@@ -216,6 +247,10 @@ Route::get('/test-snap-token', function() {
 });
 
 Route::get('/debug-midtrans-config', function() {
+    if (!app()->environment('local')) {
+        abort(404);
+    }
+    
     return response()->json([
         'env_server_key' => env('MIDTRANS_SERVER_KEY'),
         'env_client_key' => env('MIDTRANS_CLIENT_KEY'),
