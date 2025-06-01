@@ -5,18 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Digital Ecommerce</title>
     
-    <!-- CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
-    <!-- Styles -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     
-    <!-- Scripts -->
     <script src="{{ asset('js/app.js') }}" defer></script>
+    {{-- Pastikan Anda menggunakan versi chatbot.js yang sudah kita perbaiki dan lengkap --}}
     <script src="{{ asset('js/chatbot.js') }}" defer></script>
     
     <style>
@@ -26,16 +23,15 @@
             0% { transform: translateX(100%); }
             100% { transform: translateX(-100%); }
         }
-        
+        /* Tambahkan ini jika Anda tidak menggunakan framework CSS yang sudah punya class .hidden */
+        .hidden { display: none !important; }
     </style>
 </head>
 <body class="bg-white text-gray-900 antialiased font-light">
     <div id="app" class="min-h-screen flex flex-col">
-        <!-- Top Bar -->
         <div class="bg-black border-b border-gray-800 text-white py-2 text-xs">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between">
-                    <!-- Left side -->
                     <div class="flex items-center space-x-4">
                         <div class="flex items-center space-x-2">
                             <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -54,7 +50,6 @@
                         </div>
                     </div>
                     
-                    <!-- Right side -->
                     <div class="flex items-center space-x-4">
                         <div class="hidden lg:flex items-center space-x-4 text-xs">
                             <a href="tel:+1234567890" class="text-gray-300 hover:text-white transition-colors duration-300 flex items-center space-x-1">
@@ -89,18 +84,15 @@
             </div>
         </div>
 
-        <!-- Navigation -->
         <nav class="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between items-center h-16">
-                    <!-- Logo -->
                     <div class="flex-shrink-0">
                         <a href="{{ route('home') }}" class="text-2xl font-light text-black tracking-tight hover:text-gray-700 transition duration-300">
                             Digital Ecommerce
                         </a>
                     </div>
                     
-                    <!-- Search Bar (Desktop) -->
                     <div class="hidden md:flex flex-1 max-w-lg mx-8">
                         <div class="relative w-full max-w-md">
                             <form action="{{ route('products.index') }}" method="GET" id="search-form">
@@ -117,19 +109,16 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                                 </svg>
                             </form>
-                            <!-- Search Results -->
                             <div id="search-results" class="hidden absolute top-full left-0 right-0 bg-white border border-gray-200 border-t-0 rounded-b-lg max-h-80 overflow-y-auto z-50 shadow-lg"></div>
                         </div>
                     </div>
                     
-                    <!-- Navigation Links -->
                     <div class="hidden md:flex items-center space-x-8">
                         @guest
                             <a href="{{ route('login') }}" class="text-gray-600 hover:text-black transition-colors duration-300 text-sm">Login</a>
                             <a href="{{ route('register') }}" class="bg-black text-white px-6 py-2 rounded text-sm hover:bg-gray-800 transition-colors duration-300">Register</a>
                         @else
                            <div class="flex items-center gap-x-6">
-                            <!-- Cart -->
                             <a href="{{ route('cart.index') }}" class="flex items-center text-sm text-gray-600 hover:text-black transition-colors duration-300 gap-x-1">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
@@ -138,7 +127,6 @@
                                 <span>Cart</span>
                             </a>
 
-                            <!-- Profile -->
                             <a href="{{ route('profile.index') }}" class="flex items-center text-sm text-gray-600 hover:text-black transition-colors duration-300 gap-x-1">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
@@ -146,7 +134,6 @@
                                 <span>Profile</span>
                             </a>
 
-                            <!-- Logout -->
                             <form action="{{ route('logout') }}" method="POST" class="inline">
                                 @csrf
                                 <button type="submit" class="flex items-center text-sm text-gray-600 hover:text-black transition-colors duration-300 gap-x-1">
@@ -161,7 +148,6 @@
                         @endguest
                     </div>
                     
-                    <!-- Mobile menu button -->
                     <button class="md:hidden text-gray-600 hover:text-black transition-colors duration-300" onclick="toggleMobileMenu()">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"/>
@@ -169,7 +155,6 @@
                     </button>
                 </div>
                 
-                <!-- Mobile Search Bar -->
                 <div class="md:hidden pb-4">
                     <div class="relative max-w-md mx-4">
                         <form action="{{ route('products.index') }}" method="GET" id="mobile-search-form">
@@ -190,7 +175,6 @@
                     </div>
                 </div>
                 
-                <!-- Mobile Navigation -->
                 <div class="md:hidden hidden border-t border-gray-100" id="mobile-menu">
                     <div class="px-2 pt-2 pb-3 space-y-1">
                         @guest
@@ -209,10 +193,8 @@
             </div>
         </nav>
 
-        <!-- Main Content -->
         <main class="flex-1">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
-                <!-- Back Button -->
                 @if(View::hasSection('show_back_button'))
                     <div class="mb-8">
                         <button onclick="window.history.back()" class="flex items-center text-gray-600 hover:text-black transition-colors duration-300 text-sm">
@@ -224,23 +206,19 @@
                     </div>
                 @endif
                 
-                <!-- Content Area -->
                 <div class="bg-white min-h-96">
                     @yield('content')
                 </div>
             </div>
         </main>
 
-        <!-- Chatbot Button -->
         <div id="chatbot-button" class="fixed bottom-6 right-6 w-14 h-14 bg-black hover:bg-gray-800 hover:scale-105 transition-all duration-300 rounded-full flex items-center justify-center cursor-pointer shadow-lg z-50">
             <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
             </svg>
         </div>
 
-        <!-- Chatbot Container -->
         <div id="chatbot-container" class="fixed bottom-24 right-6 w-80 md:w-96 bg-white rounded-lg shadow-xl overflow-hidden hidden z-50 border border-gray-100">
-            <!-- Chatbot Header -->
             <div class="bg-black text-white p-4 flex justify-between items-center">
                 <div class="flex items-center space-x-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -255,19 +233,12 @@
                 </button>
             </div>
             
-            <!-- Chatbot Messages -->
             <div id="chatbot-messages" class="h-80 p-4 overflow-y-auto bg-gray-50"></div>
             
-            <!-- Quick Reply Options -->
-            <div class="px-4 py-3 bg-white border-t border-gray-100 flex overflow-x-auto space-x-2">
-                <button class="chatbot-quick-reply text-xs bg-gray-100 hover:bg-gray-200 border border-gray-200 hover:border-gray-300 text-gray-600 hover:text-gray-700 transition-all duration-200 rounded-full px-3 py-1 whitespace-nowrap">Products</button>
-                <button class="chatbot-quick-reply text-xs bg-gray-100 hover:bg-gray-200 border border-gray-200 hover:border-gray-300 text-gray-600 hover:text-gray-700 transition-all duration-200 rounded-full px-3 py-1 whitespace-nowrap">Categories</button>
-                <button class="chatbot-quick-reply text-xs bg-gray-100 hover:bg-gray-200 border border-gray-200 hover:border-gray-300 text-gray-600 hover:text-gray-700 transition-all duration-200 rounded-full px-3 py-1 whitespace-nowrap">Orders</button>
-                <button class="chatbot-quick-reply text-xs bg-gray-100 hover:bg-gray-200 border border-gray-200 hover:border-gray-300 text-gray-600 hover:text-gray-700 transition-all duration-200 rounded-full px-3 py-1 whitespace-nowrap">Shipping info</button>
-                <button class="chatbot-quick-reply text-xs bg-gray-100 hover:bg-gray-200 border border-gray-200 hover:border-gray-300 text-gray-600 hover:text-gray-700 transition-all duration-200 rounded-full px-3 py-1 whitespace-nowrap">Return policy</button>
+            <div id="chatbot-quick-replies-container" class="chatbot-quick-replies px-4 py-3 bg-white border-t border-gray-100 flex overflow-x-auto space-x-2">
+                {{-- Tombol quick reply akan diisi oleh JavaScript --}}
             </div>
             
-            <!-- Chatbot Input -->
             <div class="p-4 border-t border-gray-100 bg-white">
                 <div class="flex space-x-2">
                     <input 
@@ -285,7 +256,6 @@
             </div>
         </div>
 
-        <!-- Footer -->
         <footer class="bg-white border-t border-gray-100 mt-16">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div class="text-center">
@@ -309,12 +279,12 @@
             mobileMenu.classList.toggle('hidden');
         }
 
-        // Search functionality - FIXED VERSION
-        document.addEventListener('DOMContentLoaded', function() {
-            const searchInput = document.getElementById('search-input');
-            const mobileSearchInput = document.getElementById('mobile-search-input');
-            const searchResults = document.getElementById('search-results');
-            const mobileSearchResults = document.getElementById('mobile-search-results');
+        // Search functionality - FIXED VERSION (DARI FILE YANG ANDA BERIKAN)
+        document.addEventListener('DOMContentLoaded', function() { //
+            const searchInput = document.getElementById('search-input'); //
+            const mobileSearchInput = document.getElementById('mobile-search-input'); //
+            const searchResults = document.getElementById('search-results'); //
+            const mobileSearchResults = document.getElementById('mobile-search-results'); //
             let searchTimeout;
 
             function performSearch(query, resultsContainer) {
@@ -323,30 +293,29 @@
                     return;
                 }
 
-                fetch(`/api/v1/products?search=${encodeURIComponent(query)}&limit=5`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                fetch(`/api/v1/products?search=${encodeURIComponent(query)}&limit=5`, { //
+                    method: 'GET', //
+                    headers: { //
+                        'Content-Type': 'application/json', //
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') //
                     }
                 })
-                .then(response => response.json())
-                .then(data => {
-                    // Menyesuaikan dengan struktur JSON yang benar
-                    const products = data.products || data.data || [];
-                    displaySearchResults(products, resultsContainer);
+                .then(response => response.json()) //
+                .then(data => { //
+                    const products = data.products || data.data || []; //
+                    displaySearchResults(products, resultsContainer); //
                 })
-                .catch(error => {
-                    console.error('Search error:', error);
-                    resultsContainer.classList.add('hidden');
+                .catch(error => { //
+                    console.error('Search error:', error); //
+                    resultsContainer.classList.add('hidden'); //
                 });
             }
 
             function displaySearchResults(products, container) {
-                if (products.length === 0) {
-                    container.innerHTML = '<div class="p-4 text-center text-gray-500 text-sm">No products found</div>';
-                    container.classList.remove('hidden');
-                    return;
+                if (products.length === 0) { //
+                    container.innerHTML = '<div class="p-4 text-center text-gray-500 text-sm">No products found</div>'; //
+                    container.classList.remove('hidden'); //
+                    return; //
                 }
 
                 const resultsHTML = products.map(product => `
@@ -354,407 +323,320 @@
                         <div class="font-normal text-gray-800 text-sm mb-1">${product.name}</div>
                         <div class="text-xs text-gray-500">Rp${parseFloat(product.price).toLocaleString()}</div>
                     </div>
-                `).join('');
+                `).join(''); //
 
-                container.innerHTML = resultsHTML;
-                container.classList.remove('hidden');
+                container.innerHTML = resultsHTML; //
+                container.classList.remove('hidden'); //
             }
 
-            // Desktop search
             if (searchInput) {
-                searchInput.addEventListener('input', function() {
-                    clearTimeout(searchTimeout);
-                    const query = this.value.trim();
+                searchInput.addEventListener('input', function() { //
+                    clearTimeout(searchTimeout); //
+                    const query = this.value.trim(); //
                     
-                    searchTimeout = setTimeout(() => {
-                        performSearch(query, searchResults);
-                    }, 300);
+                    searchTimeout = setTimeout(() => { //
+                        performSearch(query, searchResults); //
+                    }, 300); //
                 });
 
-                document.addEventListener('click', function(e) {
-                    if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
-                        searchResults.classList.add('hidden');
+                document.addEventListener('click', function(e) { //
+                    if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) { //
+                        searchResults.classList.add('hidden'); //
                     }
                 });
             }
 
-            // Mobile search
             if (mobileSearchInput) {
-                mobileSearchInput.addEventListener('input', function() {
-                    clearTimeout(searchTimeout);
-                    const query = this.value.trim();
+                mobileSearchInput.addEventListener('input', function() { //
+                    clearTimeout(searchTimeout); //
+                    const query = this.value.trim(); //
                     
-                    searchTimeout = setTimeout(() => {
-                        performSearch(query, mobileSearchResults);
-                    }, 300);
+                    searchTimeout = setTimeout(() => { //
+                        performSearch(query, mobileSearchResults); //
+                    }, 300); //
                 });
 
-                document.addEventListener('click', function(e) {
-                    if (!mobileSearchInput.contains(e.target) && !mobileSearchResults.contains(e.target)) {
-                        mobileSearchResults.classList.add('hidden');
+                document.addEventListener('click', function(e) { //
+                    if (!mobileSearchInput.contains(e.target) && !mobileSearchResults.contains(e.target)) { //
+                        mobileSearchResults.classList.add('hidden'); //
                     }
                 });
             }
         });
 
-        // Chatbot functionality
+        // =====================================================================
+        // HAPUS BLOK JavaScript "Chatbot functionality" DARI SINI SAMPAI AKHIR BLOKNYA
+        // KARENA AKAN DIGANTIKAN OLEH FILE public/js/chatbot.js YANG LEBIH LENGKAP
+        // =====================================================================
+        /* // Chatbot functionality (BLOK INI DIHAPUS)
         document.addEventListener('DOMContentLoaded', function() {
-            const chatbotButton = document.getElementById('chatbot-button');
-            const chatbotContainer = document.getElementById('chatbot-container');
-            const chatbotClose = document.getElementById('chatbot-close');
-            const chatbotMessages = document.getElementById('chatbot-messages');
-            const chatbotInput = document.getElementById('chatbot-input');
-            const chatbotSend = document.getElementById('chatbot-send');
-            const quickReplyButtons = document.querySelectorAll('.chatbot-quick-reply');
-
-            let chatInitialized = false;
-
-            chatbotButton.addEventListener('click', function() {
-                chatbotContainer.classList.toggle('hidden');
-                if (!chatInitialized && !chatbotContainer.classList.contains('hidden')) {
-                    initializeChat();
-                    chatInitialized = true;
-                }
-            });
-
-            chatbotClose.addEventListener('click', function() {
-                chatbotContainer.classList.add('hidden');
-            });
-
-            function initializeChat() {
-                addMessage('Hello! I\'m your shopping assistant. How can I help you today?', 'bot');
-            }
-
-            function addMessage(text, sender) {
-                const messageDiv = document.createElement('div');
-                messageDiv.classList.add('mb-3');
-                
-                if (sender === 'bot') {
-                    messageDiv.innerHTML = `
-                        <div class="bg-white p-3 rounded-lg shadow-sm inline-block max-w-xs">
-                            <p class="text-sm text-gray-700">${text}</p>
-                        </div>
-                    `;
-                } else {
-                    messageDiv.innerHTML = `
-                        <div class="flex justify-end">
-                            <div class="bg-black text-white p-3 rounded-lg inline-block max-w-xs">
-                                <p class="text-sm">${text}</p>
-                            </div>
-                        </div>
-                    `;
-                }
-                
-                chatbotMessages.appendChild(messageDiv);
-                chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
-            }
-
-            function sendMessage() {
-                const message = chatbotInput.value.trim();
-                if (message === '') return;
-
-                addMessage(message, 'user');
-                chatbotInput.value = '';
-
-                // Simulate bot response
-                setTimeout(() => {
-                    const responses = {
-                        'products': 'We have a wide range of products including electronics, clothing, home & garden, and more. What are you looking for?',
-                        'categories': 'Our main categories include: Electronics, Fashion, Home & Garden, Sports, Books, and Beauty. Which one interests you?',
-                        'orders': 'You can view your order history in your profile page. Would you like me to guide you there?',
-                        'shipping info': 'We offer free shipping on orders over $50. Standard delivery takes 3-5 business days, express delivery 1-2 days.',
-                        'return policy': 'We accept returns within 30 days of purchase. Items must be in original condition. Would you like more details?',
-                        'hello': 'Hello! How can I assist you with your shopping today?',
-                        'hi': 'Hi there! What can I help you find?',
-                        'help': 'I can help you with product information, order status, shipping details, and more. What do you need help with?'
-                    };
-
-                    let botResponse = responses[message.toLowerCase()] || 
-                        'I understand you\'re asking about "' + message + '". Let me help you with that. Could you be more specific?';
-                    
-                    addMessage(botResponse, 'bot');
-                }, 1000);
-            }
-
-            chatbotSend.addEventListener('click', sendMessage);
-            
-            chatbotInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    sendMessage();
-                }
-            });
-
-            // Quick reply buttons
-            quickReplyButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const text = this.textContent;
-                    chatbotInput.value = text;
-                    sendMessage();
-                });
-            });
+            // ... (kode chatbot inline yang ada di file Anda sebelumnya dihapus) ...
         });
+        */
+       
+        // Kode JavaScript lain yang sudah ada di file Anda (Form submission, Smooth scroll, dll.)
+        // biarkan di sini jika tidak berkonflik.
 
-        // Auto-hide search results when clicking outside
-        document.addEventListener('click', function(e) {
-            const searchInput = document.getElementById('search-input');
-            const mobileSearchInput = document.getElementById('mobile-search-input');
-            const searchResults = document.getElementById('search-results');
-            const mobileSearchResults = document.getElementById('mobile-search-results');
+        // Auto-hide search results when clicking outside (Ini sudah ada di blok search, mungkin duplikat)
+        document.addEventListener('click', function(e) { //
+            const searchInput = document.getElementById('search-input'); //
+            const mobileSearchInput = document.getElementById('mobile-search-input'); //
+            const searchResults = document.getElementById('search-results'); //
+            const mobileSearchResults = document.getElementById('mobile-search-results'); //
             
-            if (searchInput && searchResults && !searchInput.contains(e.target) && !searchResults.contains(e.target)) {
-                searchResults.classList.add('hidden');
+            if (searchInput && searchResults && !searchInput.contains(e.target) && !searchResults.contains(e.target)) { //
+                searchResults.classList.add('hidden'); //
             }
             
-            if (mobileSearchInput && mobileSearchResults && !mobileSearchInput.contains(e.target) && !mobileSearchResults.contains(e.target)) {
-                mobileSearchResults.classList.add('hidden');
+            if (mobileSearchInput && mobileSearchResults && !mobileSearchInput.contains(e.target) && !mobileSearchResults.contains(e.target)) { //
+                mobileSearchResults.classList.add('hidden'); //
             }
         });
 
         // Form submission handling
-        document.addEventListener('DOMContentLoaded', function() {
-            const searchForm = document.getElementById('search-form');
-            const mobileSearchForm = document.getElementById('mobile-search-form');
+        document.addEventListener('DOMContentLoaded', function() { //
+            const searchForm = document.getElementById('search-form'); //
+            const mobileSearchForm = document.getElementById('mobile-search-form'); //
             
             if (searchForm) {
-                searchForm.addEventListener('submit', function(e) {
-                    const searchInput = document.getElementById('search-input');
-                    if (searchInput.value.trim() === '') {
-                        e.preventDefault();
+                searchForm.addEventListener('submit', function(e) { //
+                    const searchInput = document.getElementById('search-input'); //
+                    if (searchInput.value.trim() === '') { //
+                        e.preventDefault(); //
                     }
                 });
             }
             
             if (mobileSearchForm) {
-                mobileSearchForm.addEventListener('submit', function(e) {
-                    const mobileSearchInput = document.getElementById('mobile-search-input');
-                    if (mobileSearchInput.value.trim() === '') {
-                        e.preventDefault();
+                mobileSearchForm.addEventListener('submit', function(e) { //
+                    const mobileSearchInput = document.getElementById('mobile-search-input'); //
+                    if (mobileSearchInput.value.trim() === '') { //
+                        e.preventDefault(); //
                     }
                 });
             }
         });
 
         // Smooth scroll for anchor links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => { //
+            anchor.addEventListener('click', function (e) { //
+                e.preventDefault(); //
+                const target = document.querySelector(this.getAttribute('href')); //
+                if (target) { //
+                    target.scrollIntoView({ //
+                        behavior: 'smooth', //
+                        block: 'start' //
                     });
                 }
             });
         });
 
         // Loading state for forms
-        document.addEventListener('DOMContentLoaded', function() {
-            const forms = document.querySelectorAll('form[method="POST"]');
-            forms.forEach(form => {
-                form.addEventListener('submit', function() {
-                    const submitButton = form.querySelector('button[type="submit"]');
-                    if (submitButton) {
-                        submitButton.disabled = true;
-                        const originalText = submitButton.textContent;
-                        submitButton.textContent = 'Loading...';
+        document.addEventListener('DOMContentLoaded', function() { //
+            const forms = document.querySelectorAll('form[method="POST"]'); //
+            forms.forEach(form => { //
+                form.addEventListener('submit', function() { //
+                    const submitButton = form.querySelector('button[type="submit"]'); //
+                    if (submitButton) { //
+                        submitButton.disabled = true; //
+                        const originalText = submitButton.textContent; //
+                        submitButton.textContent = 'Loading...'; //
                         
-                        setTimeout(() => {
-                            submitButton.disabled = false;
-                            submitButton.textContent = originalText;
-                        }, 3000);
+                        setTimeout(() => { //
+                            submitButton.disabled = false; //
+                            submitButton.textContent = originalText; //
+                        }, 3000); //
                     }
                 });
             });
         });
 
         // Toast notification system
-        function showToast(message, type = 'info') {
-            const toast = document.createElement('div');
-            toast.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white text-sm transition-all duration-300 transform translate-x-full`;
+        function showToast(message, type = 'info') { //
+            const toast = document.createElement('div'); //
+            toast.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white text-sm transition-all duration-300 transform translate-x-full`; //
             
-            switch(type) {
-                case 'success':
-                    toast.classList.add('bg-green-500');
-                    break;
-                case 'error':
-                    toast.classList.add('bg-red-500');
-                    break;
-                case 'warning':
-                    toast.classList.add('bg-yellow-500');
-                    break;
-                default:
-                    toast.classList.add('bg-blue-500');
+            switch(type) { //
+                case 'success': //
+                    toast.classList.add('bg-green-500'); //
+                    break; //
+                case 'error': //
+                    toast.classList.add('bg-red-500'); //
+                    break; //
+                case 'warning': //
+                    toast.classList.add('bg-yellow-500'); //
+                    break; //
+                default: //
+                    toast.classList.add('bg-blue-500'); //
             }
             
-            toast.textContent = message;
-            document.body.appendChild(toast);
+            toast.textContent = message; //
+            document.body.appendChild(toast); //
             
-            setTimeout(() => {
-                toast.classList.remove('translate-x-full');
-            }, 100);
+            setTimeout(() => { //
+                toast.classList.remove('translate-x-full'); //
+            }, 100); //
             
-            setTimeout(() => {
-                toast.classList.add('translate-x-full');
-                setTimeout(() => {
-                    document.body.removeChild(toast);
-                }, 300);
-            }, 3000);
+            setTimeout(() => { //
+                toast.classList.add('translate-x-full'); //
+                setTimeout(() => { //
+                    document.body.removeChild(toast); //
+                }, 300); //
+            }, 3000); //
         }
 
         // Image lazy loading
-        document.addEventListener('DOMContentLoaded', function() {
-            const images = document.querySelectorAll('img[data-src]');
-            const imageObserver = new IntersectionObserver((entries, observer) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const img = entry.target;
-                        img.src = img.dataset.src;
-                        img.classList.remove('lazy');
-                        imageObserver.unobserve(img);
+        document.addEventListener('DOMContentLoaded', function() { //
+            const images = document.querySelectorAll('img[data-src]'); //
+            const imageObserver = new IntersectionObserver((entries, observer) => { //
+                entries.forEach(entry => { //
+                    if (entry.isIntersecting) { //
+                        const img = entry.target; //
+                        img.src = img.dataset.src; //
+                        img.classList.remove('lazy'); //
+                        imageObserver.unobserve(img); //
                     }
                 });
             });
 
-            images.forEach(img => imageObserver.observe(img));
+            images.forEach(img => imageObserver.observe(img)); //
         });
 
         // Keyboard navigation for accessibility
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
+        document.addEventListener('keydown', function(e) { //
+            if (e.key === 'Escape') { //
                 // Close mobile menu
-                const mobileMenu = document.getElementById('mobile-menu');
-                if (mobileMenu && !mobileMenu.classList.contains('hidden')) {
-                    mobileMenu.classList.add('hidden');
+                const mobileMenu = document.getElementById('mobile-menu'); //
+                if (mobileMenu && !mobileMenu.classList.contains('hidden')) { //
+                    mobileMenu.classList.add('hidden'); //
                 }
                 
                 // Close chatbot
-                const chatbotContainer = document.getElementById('chatbot-container');
-                if (chatbotContainer && !chatbotContainer.classList.contains('hidden')) {
-                    chatbotContainer.classList.add('hidden');
+                const chatbotContainer = document.getElementById('chatbot-container'); //
+                if (chatbotContainer && !chatbotContainer.classList.contains('hidden')) { //
+                    chatbotContainer.classList.add('hidden'); //
                 }
                 
                 // Hide search results
-                const searchResults = document.getElementById('search-results');
-                const mobileSearchResults = document.getElementById('mobile-search-results');
-                if (searchResults) searchResults.classList.add('hidden');
-                if (mobileSearchResults) mobileSearchResults.classList.add('hidden');
+                const searchResults = document.getElementById('search-results'); //
+                const mobileSearchResults = document.getElementById('mobile-search-results'); //
+                if (searchResults) searchResults.classList.add('hidden'); //
+                if (mobileSearchResults) mobileSearchResults.classList.add('hidden'); //
             }
         });
 
         // Price formatting
-        function formatPrice(price) {
-            return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'USD'
-            }).format(price);
+        function formatPrice(price) { //
+            return new Intl.NumberFormat('en-US', { //
+                style: 'currency', //
+                currency: 'USD' //
+            }).format(price); //
         }
 
         // Quantity input validation
-        document.addEventListener('DOMContentLoaded', function() {
-            const quantityInputs = document.querySelectorAll('input[type="number"][name*="quantity"]');
-            quantityInputs.forEach(input => {
-                input.addEventListener('change', function() {
-                    const min = parseInt(this.min) || 1;
-                    const max = parseInt(this.max) || 999;
-                    let value = parseInt(this.value) || min;
+        document.addEventListener('DOMContentLoaded', function() { //
+            const quantityInputs = document.querySelectorAll('input[type="number"][name*="quantity"]'); //
+            quantityInputs.forEach(input => { //
+                input.addEventListener('change', function() { //
+                    const min = parseInt(this.min) || 1; //
+                    const max = parseInt(this.max) || 999; //
+                    let value = parseInt(this.value) || min; //
                     
-                    if (value < min) value = min;
-                    if (value > max) value = max;
+                    if (value < min) value = min; //
+                    if (value > max) value = max; //
                     
-                    this.value = value;
+                    this.value = value; //
                 });
             });
         });
 
         // Cart update functionality
-        function updateCartQuantity(productId, quantity) {
-            fetch('/cart/update', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        function updateCartQuantity(productId, quantity) { //
+            fetch('/cart/update', { //
+                method: 'POST', //
+                headers: { //
+                    'Content-Type': 'application/json', //
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') //
                 },
-                body: JSON.stringify({
-                    product_id: productId,
-                    quantity: quantity
+                body: JSON.stringify({ //
+                    product_id: productId, //
+                    quantity: quantity //
                 })
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showToast('Cart updated successfully', 'success');
-                    location.reload();
-                } else {
-                    showToast('Failed to update cart', 'error');
+            .then(response => response.json()) //
+            .then(data => { //
+                if (data.success) { //
+                    showToast('Cart updated successfully', 'success'); //
+                    location.reload(); //
+                } else { //
+                    showToast('Failed to update cart', 'error'); //
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
-                showToast('An error occurred', 'error');
+            .catch(error => { //
+                console.error('Error:', error); //
+                showToast('An error occurred', 'error'); //
             });
         }
 
         // Add to cart functionality
-        function addToCart(productId, quantity = 1) {
-            fetch('/cart/add', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        function addToCart(productId, quantity = 1) { //
+            fetch('/cart/add', { //
+                method: 'POST', //
+                headers: { //
+                    'Content-Type': 'application/json', //
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') //
                 },
-                body: JSON.stringify({
-                    product_id: productId,
-                    quantity: quantity
+                body: JSON.stringify({ //
+                    product_id: productId, //
+                    quantity: quantity //
                 })
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showToast('Product added to cart', 'success');
-                } else {
-                    showToast(data.message || 'Failed to add product to cart', 'error');
+            .then(response => response.json()) //
+            .then(data => { //
+                if (data.success) { //
+                    showToast('Product added to cart', 'success'); //
+                } else { //
+                    showToast(data.message || 'Failed to add product to cart', 'error'); //
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
-                showToast('An error occurred', 'error');
+            .catch(error => { //
+                console.error('Error:', error); //
+                showToast('An error occurred', 'error'); //
             });
         }
 
         // Wishlist functionality
-        function toggleWishlist(productId) {
-            fetch('/wishlist/toggle', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        function toggleWishlist(productId) { //
+            fetch('/wishlist/toggle', { //
+                method: 'POST', //
+                headers: { //
+                    'Content-Type': 'application/json', //
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') //
                 },
-                body: JSON.stringify({
-                    product_id: productId
+                body: JSON.stringify({ //
+                    product_id: productId //
                 })
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const icon = document.querySelector(`[data-wishlist="${productId}"]`);
-                    if (icon) {
-                        icon.classList.toggle('text-red-500');
-                        icon.classList.toggle('text-gray-400');
+            .then(response => response.json()) //
+            .then(data => { //
+                if (data.success) { //
+                    const icon = document.querySelector(`[data-wishlist="${productId}"]`); //
+                    if (icon) { //
+                        icon.classList.toggle('text-red-500'); //
+                        icon.classList.toggle('text-gray-400'); //
                     }
-                    showToast(data.message, 'success');
-                } else {
-                    showToast(data.message || 'Failed to update wishlist', 'error');
+                    showToast(data.message, 'success'); //
+                } else { //
+                    showToast(data.message || 'Failed to update wishlist', 'error'); //
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
-                showToast('An error occurred', 'error');
+            .catch(error => { //
+                console.error('Error:', error); //
+                showToast('An error occurred', 'error'); //
             });
         }
     </script>
 
-    <!-- Additional Scripts -->
     @stack('scripts')
 </body>
 </html>

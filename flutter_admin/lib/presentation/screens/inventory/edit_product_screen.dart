@@ -726,6 +726,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
             onPressed: _deleteProduct,
           ),
         ],
+        
+
       ),
       body: _isFetchingCategories
           ? const Center(child: CircularProgressIndicator())

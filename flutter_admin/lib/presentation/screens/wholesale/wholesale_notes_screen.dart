@@ -924,7 +924,7 @@ Widget _buildEmptyState(BuildContext context, String message) {
       heroTag: "speed-dial-hero-tag",
       elevation: 8.0,
       shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(15), // Atur radius sesuai keinginan
+      borderRadius: BorderRadius.circular(15),
       ),
       children: [
         SpeedDialChild(
@@ -959,6 +959,9 @@ Widget _buildEmptyState(BuildContext context, String message) {
             );
           },
         ),
+        
+        //
+
       ],
     ),
     floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,

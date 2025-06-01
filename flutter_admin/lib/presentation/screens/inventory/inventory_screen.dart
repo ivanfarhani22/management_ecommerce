@@ -248,6 +248,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     _showFilterBottomSheet();
                   },
                 ),
+                
+                //
+
               ],
             ),
           ),
